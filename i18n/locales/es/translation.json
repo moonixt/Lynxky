@@ -207,6 +207,9 @@
       "untitled": "Sin título",
       "noContent": "Sin contenido"
     },
+    "confirmDelete": "¿Estás seguro de que quieres eliminar esta nota? Esta acción no se puede deshacer.",
+    "deleteError": "Error al eliminar la nota. Por favor, inténtalo de nuevo.",
+    "collaborativeDeleteInfo": "Solo el anfitrión (creador) de esta nota colaborativa puede eliminarla. Por favor, contacta al propietario de la nota para eliminarla.",
     "collaborative": "Colaborativa",
     "private": "Privada",
     "publicNotesEmptyDescription": "¡Crea tu primera nota colaborativa para empezar a compartir y colaborar con otros!",
@@ -356,7 +359,7 @@
   },
   "editor": {
     "titlePlaceholder": "Nombre del espacio de trabajo",
-    "contentPlaceholder": "Escribe tu nota aquí...",
+    "contentPlaceholder": "Presiona '/' para agregar un elemento",
     "noteTitle": "Título de la nota",
     "noteContent": "Escribe tu nota aquí...",
     "addEmoji": "Añadir emoji",
@@ -418,7 +421,60 @@
     "noteTypeSwitchExplanation": "Tu contenido actual se guardará como nota privada y el nuevo contenido será colaborativo, pudiendo ser compartido.",
     "continue": "Confirmar Cambio",
     "changingTypeWillSave": "Cambiar el tipo guardará automáticamente el contenido actual",
-    "hasContent": "Esta nota tiene contenido"
+    "hasContent": "Esta nota tiene contenido",
+    "slashMenu": {
+      "quickCommands": "ASISTENTE",
+      "searching": "Buscando",
+      "noResults": "SIN RESULTADOS",
+      "noCommandsFound": "No se encontró ningún comando para",
+      "navigate": "navegar",
+      "select": "seleccionar",
+      "cancel": "cancelar",
+      "assistant": "Asistente",
+      "commands": {
+        "bold": {
+          "description": "Texto en negrita"
+        },
+        "italic": {
+          "description": "Texto en cursiva"
+        },
+        "heading1": {
+          "description": "Título grande"
+        },
+        "heading2": {
+          "description": "Subtítulo"
+        },
+        "code": {
+          "description": "Bloque de código"
+        },
+        "orderedList": {
+          "description": "Lista numerada"
+        },
+        "unorderedList": {
+          "description": "Lista con viñetas"
+        },
+        "link": {
+          "description": "Insertar enlace"
+        },
+        "image": {
+          "description": "Insertar imagen"
+        }
+      },
+      "placeholders": {
+        "bold": "texto en negrita",
+        "italic": "texto en cursiva",
+        "heading1": "Título",
+        "heading2": "Subtítulo",
+        "code": "código",
+        "codeBlock": "código aquí",
+        "orderedList": "1. Primer elemento\n2. Segundo elemento\n3. Tercer elemento",
+        "unorderedList": "- Primer elemento\n- Segundo elemento\n- Tercer elemento",
+        "linkText": "texto del enlace",
+        "linkUrl": "url",
+        "imageDescription": "descripción de imagen",
+        "imageUrl": "url_de_imagen"
+      }
+    }
   },
   "profile": {
     "profile": "Perfil",

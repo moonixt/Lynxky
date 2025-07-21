@@ -216,6 +216,9 @@
       "untitled": "Sem título",
       "noContent": "Sem conteúdo"
     },
+    "confirmDelete": "Tem certeza de que deseja excluir esta nota? Esta ação não pode ser desfeita.",
+    "deleteError": "Falha ao excluir a nota. Por favor, tente novamente.",
+    "collaborativeDeleteInfo": "Apenas o anfitrião (criador) desta nota colaborativa pode excluí-la. Entre em contato com o proprietário da nota para removê-la.",
     "collaborative": "Colaborativa",
     "private": "Privada",
     "publicNotesEmptyDescription": "Crie sua primeira nota colaborativa para começar a compartilhar e colaborar com outros!",
@@ -353,7 +356,7 @@
   "editor": {
     "newNote": "Nova Nota",
     "titlePlaceholder": "Nome do espaço de trabalho",
-    "contentPlaceholder": "Escreva sua anotação aqui...",
+    "contentPlaceholder": "Pressione \"/\" para adicionar um elemento",
     "noteTitle": "Título da nota",
     "noteContent": "Escreva sua nota aqui...",
     "addEmoji": "Adicionar emoji",
@@ -414,7 +417,60 @@
     "noteTypeSwitchExplanation": "Seu conteúdo atual será salvo como nota privada e o novo conteúdo será colaborativo, podendo ser compartilhado.",
     "continue": "Confirmar Troca",
     "changingTypeWillSave": "Trocar o tipo salvará automaticamente o conteúdo atual",
-    "hasContent": "Esta nota possui conteúdo"
+    "hasContent": "Esta nota possui conteúdo",
+    "slashMenu": {
+      "quickCommands": "ASSISTENTE",
+      "searching": "Procurando por",
+      "noResults": "NENHUM RESULTADO",
+      "noCommandsFound": "Nenhum comando encontrado para",
+      "navigate": "navegar",
+      "select": "selecionar",
+      "cancel": "cancelar",
+      "assistant": "Assistente",
+      "commands": {
+        "bold": {
+          "description": "Texto em negrito"
+        },
+        "italic": {
+          "description": "Texto em itálico"
+        },
+        "heading1": {
+          "description": "Título grande"
+        },
+        "heading2": {
+          "description": "Subtítulo"
+        },
+        "code": {
+          "description": "Bloco de código"
+        },
+        "orderedList": {
+          "description": "Lista numerada"
+        },
+        "unorderedList": {
+          "description": "Lista com marcadores"
+        },
+        "link": {
+          "description": "Inserir link"
+        },
+        "image": {
+          "description": "Inserir imagem"
+        }
+      },
+      "placeholders": {
+        "bold": "texto em negrito",
+        "italic": "texto em itálico",
+        "heading1": "Título",
+        "heading2": "Subtítulo",
+        "code": "código",
+        "codeBlock": "código aqui",
+        "orderedList": "1. Primeiro item\n2. Segundo item\n3. Terceiro item",
+        "unorderedList": "- Primeiro item\n- Segundo item\n- Terceiro item",
+        "linkText": "texto do link",
+        "linkUrl": "url",
+        "imageDescription": "descrição da imagem",
+        "imageUrl": "url_da_imagem"
+      }
+    }
   },
   "notes": {
     "backToHome": "Voltar para a página inicial",

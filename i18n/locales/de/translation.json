@@ -208,6 +208,9 @@
       "untitled": "Ohne Titel",
       "noContent": "Kein Inhalt"
     },
+    "confirmDelete": "Sind Sie sicher, dass Sie diese Notiz löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "deleteError": "Fehler beim Löschen der Notiz. Bitte versuchen Sie es erneut.",
+    "collaborativeDeleteInfo": "Nur der Gastgeber (Ersteller) dieser kollaborativen Notiz kann sie löschen. Bitte kontaktieren Sie den Notizbesitzer, um sie zu entfernen.",
     "bookmark": "Als Favorit markieren",
     "unbookmark": "Favorit entfernen",
     "freeTrialButton": "Kostenlose Testversion"
@@ -363,6 +366,7 @@
     "selectFolder": "Ordner auswählen",
     "noFolder": "Kein Ordner",
     "titlePlaceholder": "Name des Arbeitsbereichs",
+    "contentPlaceholder": "Drücken Sie '/' um ein Element hinzuzufügen",
     "saving": "Speichern...",
     "saved": "Gespeichert!",
     "exitEditMode": "Beenden",
@@ -372,7 +376,60 @@
     "noteTypeSwitchExplanation": "Ihr aktueller Inhalt wird als private Notiz gespeichert und der neue Inhalt wird kollaborativ und kann geteilt werden.",
     "continue": "Änderung bestätigen",
     "changingTypeWillSave": "Das Ändern des Typs speichert automatisch den aktuellen Inhalt",
-    "hasContent": "Diese Notiz hat Inhalt"
+    "hasContent": "Diese Notiz hat Inhalt",
+    "slashMenu": {
+      "quickCommands": "ASSISTENT",
+      "searching": "Suche nach",
+      "noResults": "KEINE ERGEBNISSE",
+      "noCommandsFound": "Kein Befehl gefunden für",
+      "navigate": "navigieren",
+      "select": "auswählen",
+      "cancel": "abbrechen",
+      "assistant": "Assistent",
+      "commands": {
+        "bold": {
+          "description": "Fetter Text"
+        },
+        "italic": {
+          "description": "Kursiver Text"
+        },
+        "heading1": {
+          "description": "Große Überschrift"
+        },
+        "heading2": {
+          "description": "Untertitel"
+        },
+        "code": {
+          "description": "Code-Block"
+        },
+        "orderedList": {
+          "description": "Nummerierte Liste"
+        },
+        "unorderedList": {
+          "description": "Aufzählungsliste"
+        },
+        "link": {
+          "description": "Link einfügen"
+        },
+        "image": {
+          "description": "Bild einfügen"
+        }
+      },
+      "placeholders": {
+        "bold": "fetter Text",
+        "italic": "kursiver Text",
+        "heading1": "Überschrift",
+        "heading2": "Untertitel",
+        "code": "Code",
+        "codeBlock": "Code hier",
+        "orderedList": "1. Erstes Element\n2. Zweites Element\n3. Drittes Element",
+        "unorderedList": "- Erstes Element\n- Zweites Element\n- Drittes Element",
+        "linkText": "Link-Text",
+        "linkUrl": "url",
+        "imageDescription": "Bildbeschreibung",
+        "imageUrl": "bild_url"
+      }
+    }
   },
   "profile": {
     "profile": "Profil",

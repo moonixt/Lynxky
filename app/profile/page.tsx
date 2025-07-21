@@ -409,33 +409,80 @@ const Profile = memo(() => {
     }
   };
 
-  // Função para buscar notas similar à do sidebar
+  // Enhanced search function with better precision
   const searchNotes = async (term: string) => {
-    if (!user || term.trim().length < 1) {
+    if (!user || term.trim().length < 2) {
       setSearchResults([]);
       return;
     }
 
     setIsSearching(true);
     try {
+      // Clean and prepare search term
+      const cleanTerm = term.trim().toLowerCase();
+      const searchTerms = cleanTerm.split(/\s+/).filter(t => t.length > 1);
+      
+      // First, get all notes for the user
       const { data, error } = await supabase
         .from("notes")
-        .select("id, title, content, created_at")
+        .select("id, title, content, created_at, tags")
         .eq("user_id", user.id)
-        .or(`title.ilike.%${term}%,content.ilike.%${term}%`)
-        .order("created_at", { ascending: false })
-        .limit(5);
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      // Descriptografar as notas
+      // Decrypt and score results
       const decryptedNotes = (data || []).map((note) => ({
         ...note,
         title: decrypt(note.title),
         content: note.content ? decrypt(note.content) : undefined,
       }));
 
-      setSearchResults(decryptedNotes);
+      // Advanced scoring algorithm
+      const scoredResults = decryptedNotes
+        .map((note) => {
+          let score = 0;
+          const title = (note.title || "").toLowerCase();
+          const content = (note.content || "").toLowerCase();
+          const allText = `${title} ${content}`.toLowerCase();
+
+          // Exact phrase match (highest score)
+          if (title.includes(cleanTerm)) score += 100;
+          if (content.includes(cleanTerm)) score += 50;
+
+          // Title word matches (high score)
+          searchTerms.forEach(searchTerm => {
+            if (title.includes(searchTerm)) score += 30;
+            if (content.includes(searchTerm)) score += 10;
+            
+            // Word boundary matches (more precise)
+            const wordBoundaryRegex = new RegExp(`\\b${searchTerm}`, 'i');
+            if (wordBoundaryRegex.test(title)) score += 20;
+            if (wordBoundaryRegex.test(content)) score += 5;
+          });
+
+          // Tag matches
+          if (note.tags && Array.isArray(note.tags)) {
+            note.tags.forEach(tag => {
+              if (tag.toLowerCase().includes(cleanTerm)) score += 40;
+              searchTerms.forEach(searchTerm => {
+                if (tag.toLowerCase().includes(searchTerm)) score += 15;
+              });
+            });
+          }
+
+          // Bonus for recent notes (slight preference)
+          const daysSinceCreated = (Date.now() - new Date(note.created_at).getTime()) / (1000 * 60 * 60 * 24);
+          if (daysSinceCreated < 7) score += 5;
+          if (daysSinceCreated < 1) score += 3;
+
+          return { ...note, score };
+        })
+        .filter(note => note.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 8); // Increased limit for better results
+
+      setSearchResults(scoredResults);
       setShowSearchResults(true);
     } catch (error) {
       console.error("Erro ao buscar notas:", error);
@@ -445,16 +492,16 @@ const Profile = memo(() => {
     }
   };
 
-  // Debounce para busca
+  // Enhanced debounce with minimum character requirement
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (searchTerm) {
+      if (searchTerm.trim().length >= 2) {
         searchNotes(searchTerm);
       } else {
         setSearchResults([]);
         setShowSearchResults(false);
       }
-    }, 300);
+    }, 400); // Slightly longer debounce for better UX
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
@@ -479,9 +526,42 @@ const Profile = memo(() => {
     return null;
   }
 
-  // Função auxiliar para exibir excertos de conteúdo
-  const getExcerpt = (content: string | undefined, maxLength = 60) => {
+  // Enhanced function to highlight search terms in text
+  const highlightText = (text: string, searchTerm: string) => {
+    if (!searchTerm.trim() || !text) return text;
+    
+    const terms = searchTerm.trim().toLowerCase().split(/\s+/).filter(t => t.length > 1);
+    let highlightedText = text;
+    
+    terms.forEach(term => {
+      const regex = new RegExp(`(${term})`, 'gi');
+      highlightedText = highlightedText.replace(regex, '<mark class="bg-yellow-200 dark:bg-yellow-800 px-0.5 rounded">$1</mark>');
+    });
+    
+    return highlightedText;
+  };
+
+  // Função auxiliar para exibir excertos de conteúdo com destaque
+  const getExcerpt = (content: string | undefined, searchTerm: string, maxLength = 100) => {
     if (!content) return "";
+    
+    // If search term is found, try to get context around it
+    const lowerContent = content.toLowerCase();
+    const lowerSearchTerm = searchTerm.toLowerCase().trim();
+    
+    if (lowerSearchTerm && lowerContent.includes(lowerSearchTerm)) {
+      const searchIndex = lowerContent.indexOf(lowerSearchTerm);
+      const start = Math.max(0, searchIndex - 30);
+      const end = Math.min(content.length, searchIndex + lowerSearchTerm.length + 30);
+      
+      let excerpt = content.substring(start, end);
+      if (start > 0) excerpt = "..." + excerpt;
+      if (end < content.length) excerpt = excerpt + "...";
+      
+      return excerpt;
+    }
+    
+    // Default excerpt
     if (content.length <= maxLength) return content;
     return content.substring(0, maxLength) + "...";
   };
@@ -711,111 +791,191 @@ const Profile = memo(() => {
               )}
             </div>
 
-            {/* Pesquisa rápida */}
+            {/* Enhanced search interface */}
             <div
-              className="absolute top-20 sm:top-24 left-1/2 transform -translate-x-1/2 z-10 "
+              className="absolute top-20 sm:top-24 left-1/2 transform -translate-x-1/2 z-30 w-full max-w-md px-4"
               ref={searchResultsRef}
             >
-              <div className="flex items-center bg-black/70 backdrop-blur-sm rounded-md shadow-sm p-1">
+              <div className="flex items-center bg-black/80 backdrop-blur-sm rounded-lg shadow-lg border border-white/20 p-2">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  width="14"
-                  height="14"
+                  width="16"
+                  height="16"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="ml-2 text-white"
+                  className="ml-2 text-white/80"
                 >
                   <circle cx="11" cy="11" r="8"></circle>
                   <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                 </svg>
                 <input
                   type="text"
-                  placeholder={t("sidebar.searchNotes")}
+                  placeholder={`${t("sidebar.searchNotes")} (min. 2 chars)`}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="bg-transparent text-white px-2 py-1.5 w-48 focus:outline-none text-sm"
+                  className="bg-transparent text-white px-3 py-2 w-full focus:outline-none text-sm placeholder:text-white/50"
                   onFocus={() => {
-                    if (searchTerm && searchResults.length > 0)
+                    if (searchTerm.trim().length >= 2 && searchResults.length > 0)
                       setShowSearchResults(true);
                   }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      setShowSearchResults(false);
+                      setSearchTerm("");
+                    }
+                  }}
                 />
+                {searchTerm && (
+                  <button
+                    onClick={() => {
+                      setSearchTerm("");
+                      setShowSearchResults(false);
+                    }}
+                    className="mr-2 p-1 hover:bg-white/10 rounded transition-colors"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="text-white/60"
+                    >
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </button>
+                )}
                 {isSearching && (
                   <div className="mr-2">
-                    <div className="w-3 h-3 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
+                    <div className="w-4 h-4 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
                   </div>
                 )}
               </div>
 
-              {/* Dropdown de resultados com z-index alto */}
+              {/* Enhanced dropdown with better styling and relevance indicators */}
               {showSearchResults && (
-                <div className="absolute left-0 right-0 mt-1 bg-black/50 backdrop-blur-sm rounded-md shadow-xl max-h-[300px] overflow-y-auto  border border-white/10">
+                <div className="absolute left-0 right-0 mt-2 bg-black/90 backdrop-blur-sm rounded-lg shadow-2xl max-h-[400px] overflow-y-auto border border-white/20">
                   {searchResults.length > 0 ? (
-                    searchResults.map((note) => (
-                      <button
-                        key={note.id}
-                        onClick={() => {
-                          setShowSearchResults(false);
-                          setSearchTerm("");
-                          router.push(`/notes/${note.id}`);
-                        }}
-                        className="flex flex-col w-full text-left p-3 hover:bg-white/10 transition-colors border-b border-white/10 last:border-0"
-                      >
-                        <div className="flex items-center gap-2">
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="text-white"
-                          >
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14 2 14 8 20 8"></polyline>
-                          </svg>
-                          <p className="text-white text-sm font-medium truncate flex-1">
-                            {note.title || t("sidebar.untitled")}
-                          </p>
-                        </div>
+                    <>
+                      <div className="px-3 py-2 text-xs text-white/60 border-b border-white/10 bg-black/50">
+                        {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} found
+                      </div>
+                      {searchResults.map((note, index) => (
+                        <button
+                          key={note.id}
+                          onClick={() => {
+                            setShowSearchResults(false);
+                            setSearchTerm("");
+                            router.push(`/notes/${note.id}`);
+                          }}
+                          className="flex flex-col w-full text-left p-4 hover:bg-white/10 transition-colors border-b border-white/5 last:border-0 group"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 mt-0.5">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="text-white/70"
+                              >
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                              </svg>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between">
+                                <h4 
+                                  className="text-white text-sm font-medium truncate group-hover:text-blue-200 transition-colors"
+                                  dangerouslySetInnerHTML={{
+                                    __html: highlightText(note.title || t("sidebar.untitled"), searchTerm)
+                                  }}
+                                />
+                                {note.score > 80 && (
+                                  <span className="ml-2 px-2 py-0.5 text-xs bg-green-500/20 text-green-300 rounded-full border border-green-500/30">
+                                    Best match
+                                  </span>
+                                )}
+                              </div>
 
-                        {note.content && (
-                          <p className="text-white/70 text-xs mt-1 line-clamp-2 pl-6">
-                            {getExcerpt(note.content, 80)}
-                          </p>
-                        )}
+                              {note.content && (
+                                <p 
+                                  className="text-white/70 text-xs mt-1.5 line-clamp-2 leading-relaxed"
+                                  dangerouslySetInnerHTML={{
+                                    __html: highlightText(getExcerpt(note.content, searchTerm, 120), searchTerm)
+                                  }}
+                                />
+                              )}
 
-                        <div className="flex items-center text-white/60 text-xs mt-1.5 pl-6">
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="12"
-                            height="12"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="mr-1"
-                          >
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <polyline points="12 6 12 12 16 14"></polyline>
-                          </svg>
-                          {formatDate(note.created_at)}
-                        </div>
-                      </button>
-                    ))
+                              <div className="flex items-center justify-between mt-2">
+                                <div className="flex items-center text-white/50 text-xs">
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="12"
+                                    height="12"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="mr-1"
+                                  >
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <polyline points="12 6 12 12 16 14"></polyline>
+                                  </svg>
+                                  {formatDate(note.created_at)}
+                                </div>
+                                {note.score > 0 && (
+                                  <div className="text-xs text-white/40">
+                                    {Math.round((note.score / 100) * 100)}% match
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </>
                   ) : (
-                    <div className="p-4 text-center text-white/70 text-sm">
-                      {searchTerm.length > 0
-                        ? t("sidebar.noNotesFound")
-                        : t("sidebar.searchNotes")}
+                    <div className="p-6 text-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="32"
+                        height="32"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="mx-auto text-white/30 mb-3"
+                      >
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                      </svg>
+                      <p className="text-white/70 text-sm">
+                        {searchTerm.trim().length < 2
+                          ? "Type at least 2 characters to search"
+                          : `No notes found for "${searchTerm}"`}
+                      </p>
+                      <p className="text-white/50 text-xs mt-1">
+                        Try different keywords or check spelling
+                      </p>
                     </div>
                   )}
                 </div>

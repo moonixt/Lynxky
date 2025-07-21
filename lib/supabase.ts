@@ -20,6 +20,9 @@ export const supabase = createClient(
     auth: {
       persistSession: true,
       storageKey: "sb-auth-token",
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      flowType: 'pkce',
       storage: {
         getItem: (key) => {
           if (typeof window === "undefined") return null;
@@ -33,7 +36,7 @@ export const supabase = createClient(
             .split("; ")
             .find((row) => row.startsWith(`${key}=`));
 
-          return cookie ? cookie.split("=")[1] : null;
+          return cookie ? decodeURIComponent(cookie.split("=")[1]) : null;
         },
         setItem: (key, value) => {
           if (typeof window === "undefined") return;
@@ -41,9 +44,10 @@ export const supabase = createClient(
           // Armazenar no localStorage
           window.localStorage.setItem(key, value);
 
-          // E também em um cookie
-          const maxAge = 100 * 365 * 24 * 60 * 60; // 100 anos em segundos
-          document.cookie = `${key}=${value}; path=/; max-age=${maxAge}; SameSite=Lax`;
+          // E também em um cookie com expiração mais longa
+          const maxAge = 365 * 24 * 60 * 60; // 1 ano em segundos
+          const isSecure = window.location.protocol === 'https:';
+          document.cookie = `${key}=${encodeURIComponent(value)}; path=/; max-age=${maxAge}; SameSite=Lax${isSecure ? '; Secure' : ''}`;
         },
         removeItem: (key) => {
           if (typeof window === "undefined") return;

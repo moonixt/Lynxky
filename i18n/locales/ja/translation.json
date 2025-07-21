@@ -207,6 +207,9 @@
       "untitled": "無題",
       "noContent": "内容なし"
     },
+    "confirmDelete": "このノートを削除してもよろしいですか？この操作は元に戻すことができません。",
+    "deleteError": "ノートの削除に失敗しました。もう一度お試しください。",
+    "collaborativeDeleteInfo": "この共同ノートを削除できるのは、ホスト（作成者）のみです。削除するには、ノートの所有者にお問い合わせください。",
     "collaborative": "コラボレーション",
     "private": "プライベート",
     "publicNotesEmptyDescription": "最初のコラボレーションノートを作成して、他の人との共有とコラボレーションを開始しましょう！",
@@ -356,7 +359,7 @@
   },
   "editor": {
     "titlePlaceholder": "ワークスペースの名前",
-    "contentPlaceholder": "ここにノートを書いてください...",
+    "contentPlaceholder": "'/' を押して要素を追加",
     "noteTitle": "ノートタイトル",
     "noteContent": "ここにノートを書いてください...",
     "addEmoji": "絵文字を追加",
@@ -418,7 +421,60 @@
     "noteTypeSwitchExplanation": "現在のコンテンツはプライベートノートとして保存され、新しいコンテンツは共同作業可能になり、共有できます。",
     "continue": "変更を確認",
     "changingTypeWillSave": "タイプを変更すると、現在のコンテンツが自動的に保存されます",
-    "hasContent": "このノートにはコンテンツがあります"
+    "hasContent": "このノートにはコンテンツがあります",
+    "slashMenu": {
+      "quickCommands": "アシスタント",
+      "searching": "検索中",
+      "noResults": "結果なし",
+      "noCommandsFound": "コマンドが見つかりません",
+      "navigate": "ナビゲート",
+      "select": "選択",
+      "cancel": "キャンセル",
+      "assistant": "アシスタント",
+      "commands": {
+        "bold": {
+          "description": "太字テキスト"
+        },
+        "italic": {
+          "description": "斜体テキスト"
+        },
+        "heading1": {
+          "description": "大見出し"
+        },
+        "heading2": {
+          "description": "小見出し"
+        },
+        "code": {
+          "description": "コードブロック"
+        },
+        "orderedList": {
+          "description": "番号付きリスト"
+        },
+        "unorderedList": {
+          "description": "箇条書きリスト"
+        },
+        "link": {
+          "description": "リンクを挿入"
+        },
+        "image": {
+          "description": "画像を挿入"
+        }
+      },
+      "placeholders": {
+        "bold": "太字テキスト",
+        "italic": "斜体テキスト",
+        "heading1": "見出し",
+        "heading2": "小見出し",
+        "code": "コード",
+        "codeBlock": "コードをここに",
+        "orderedList": "1. 最初の項目\n2. 2番目の項目\n3. 3番目の項目",
+        "unorderedList": "- 最初の項目\n- 2番目の項目\n- 3番目の項目",
+        "linkText": "リンクテキスト",
+        "linkUrl": "url",
+        "imageDescription": "画像の説明",
+        "imageUrl": "画像_url"
+      }
+    }
   },
   "notes": {
     "backToHome": "ホームに戻る",

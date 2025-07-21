@@ -28,6 +28,7 @@ import EmojiPicker, { Theme } from "emoji-picker-react"; //LIbrary to enable sup
 import { EmojiClickData } from "emoji-picker-react"; //Type for the emoji click data
 // import ClientLayout from "./ClientLayout";
 import Profile from "../profile/page";
+import SlashCommandMenu, { useSlashCommands } from "./SlashCommandMenu";
 import { encrypt, decrypt } from "./Encryption"; // Importar funções de criptografia e descriptografia
 import { useTranslation } from "react-i18next"; // Import the translation hook
 
@@ -42,7 +43,6 @@ function Editor({ initialNoteType = 'private', noteId }: EditorProps) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
-  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const autoSaveTimeout = useRef<NodeJS.Timeout | null>(null);
   const { user } = useAuth();
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -72,6 +72,13 @@ function Editor({ initialNoteType = 'private', noteId }: EditorProps) {
   // Add state to track if user is trying to change note type
   const [showNoteTypeChangeDialog, setShowNoteTypeChangeDialog] = useState(false);
   const [pendingNoteType, setPendingNoteType] = useState<'private' | 'public' | null>(null);
+
+  // Estados para o menu de comandos com /
+  const [showSlashMenu, setShowSlashMenu] = useState(false);
+  const [slashMenuPosition, setSlashMenuPosition] = useState({ top: 0, left: 0 });
+  const [slashMenuFilter, setSlashMenuFilter] = useState('');
+  const [selectedSlashIndex, setSelectedSlashIndex] = useState(0);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Add state for folders and folder selection
   const [folders, setFolders] = useState<Array<{ id: string; name: string }>>([]);
@@ -345,7 +352,7 @@ function Editor({ initialNoteType = 'private', noteId }: EditorProps) {
   const insertMarkdown = (markdownSyntax: string) => {
     //main function to insert markdown in the text area
     // Get the textarea element where the content is being edited
-    const textarea = document.querySelector("textarea"); // Select the textarea by its tag name
+    const textarea = textareaRef.current; // Use ref instead of querySelector
     if (!textarea) return; // Exit if no textarea is found
 
     // Get the current selection range in the textarea
@@ -362,26 +369,26 @@ function Editor({ initialNoteType = 'private', noteId }: EditorProps) {
     switch (markdownSyntax) {
       case "bold":
         // Wrap the selected text (or placeholder text) with double asterisks for bold formatting
-        newText = `**${selectedText || "text_example"}**`; //bold text example
+        newText = `**${selectedText || t("editor.slashMenu.placeholders.bold")}**`; //bold text example
         break;
       case "italic":
         // Wrap the selected text (or placeholder text) with single asterisks for italic formatting
-        newText = `*${selectedText || "text_example"}*`; //italic text example
+        newText = `*${selectedText || t("editor.slashMenu.placeholders.italic")}*`; //italic text example
         break;
       case "heading1":
         // Add a single hash symbol followed by the selected text (or placeholder) for a level 1 heading
-        newText = `# ${selectedText || " "}`; // heading level 1 exemple
+        newText = `# ${selectedText || t("editor.slashMenu.placeholders.heading1")}`; // heading level 1 exemple
         break;
       case "heading2":
         // Add two hash symbols followed by the selected text (or placeholder) for a level 2 heading
-        newText = `## ${selectedText || " "}`; //heading level 2 example
+        newText = `## ${selectedText || t("editor.slashMenu.placeholders.heading2")}`; //heading level 2 example
         break;
       case "code":
         // If the selected text contains newlines, wrap it in triple backticks for a code block
         // Otherwise, wrap it in single backticks for inline code
         newText = selectedText.includes("\n")
-          ? `\`\`\`\n${selectedText || "código aqui"}\n\`\`\``
-          : `\`${selectedText || "code here"}\``;
+          ? `\`\`\`\n${selectedText || t("editor.slashMenu.placeholders.codeBlock")}\n\`\`\``
+          : `\`${selectedText || t("editor.slashMenu.placeholders.code")}\``;
         break;
       case "orderedList":
         if (selectedText) {
@@ -391,7 +398,7 @@ function Editor({ initialNoteType = 'private', noteId }: EditorProps) {
             .join("\n");
         } else {
           // if not add a basic template
-          newText = "1. \n2. \n3. ";
+          newText = t("editor.slashMenu.placeholders.orderedList");
         }
         break;
       case "unorderedList":
@@ -400,16 +407,16 @@ function Editor({ initialNoteType = 'private', noteId }: EditorProps) {
           const lines = selectedText.split("\n");
           newText = lines.map((line) => `- ${line}`).join("\n");
         } else {
-          // Se não tiver, adicionar um template
-          newText = "- \n- \n- ";
+          // If not, add a template
+          newText = t("editor.slashMenu.placeholders.unorderedList");
         }
         break;
       case "link":
         // Create a Markdown link with the selected text (or placeholder) as the link text and "url" as the placeholder URL
-        newText = `[${selectedText || "texto do link"}](url)`;
+        newText = `[${selectedText || t("editor.slashMenu.placeholders.linkText")}](${t("editor.slashMenu.placeholders.linkUrl")})`;
         break;
       case "image":
-        newText = `![${selectedText || "descrição da imagem"}](url_da_imagem)`;
+        newText = `![${selectedText || t("editor.slashMenu.placeholders.imageDescription")}](${t("editor.slashMenu.placeholders.imageUrl")})`;
         break;
     }
 
@@ -417,12 +424,12 @@ function Editor({ initialNoteType = 'private', noteId }: EditorProps) {
       content.substring(0, start) + newText + content.substring(end);
     setContent(newContent);
 
-    // // Reposicionar o cursor após a inserção
-    // setTimeout(() => {
-    //   textarea.focus();
-    //   const newCursorPos = start + newText.length;
-    //   textarea.setSelectionRange(newCursorPos, newCursorPos);
-    // }, 0);
+    // Reposicionar o cursor após a inserção
+    setTimeout(() => {
+      textarea.focus();
+      const newCursorPos = start + newText.length;
+      textarea.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
   };
 
   const saveNote = async () => {
@@ -615,17 +622,11 @@ function Editor({ initialNoteType = 'private', noteId }: EditorProps) {
     
     if (autoSaveTimeout.current) clearTimeout(autoSaveTimeout.current);
     
-    // Resetar o status para idle primeiro
-    setAutoSaveStatus('idle');
-    
     autoSaveTimeout.current = setTimeout(async () => {
-      setAutoSaveStatus('saving');
       try {
         await saveNote();
-        setAutoSaveStatus('saved');
-        setTimeout(() => setAutoSaveStatus('idle'), 1500);
       } catch (error) {
-        setAutoSaveStatus('idle');
+        console.error('Auto-save error:', error);
       }
     }, 1500); // 1.5s debounce
     
@@ -643,13 +644,10 @@ function Editor({ initialNoteType = 'private', noteId }: EditorProps) {
         // Only allow manual save if component is initialized
         if (!isInitialized) return;
         
-        setAutoSaveStatus('saving');
         try {
           await saveNote();
-          setAutoSaveStatus('saved');
-          setTimeout(() => setAutoSaveStatus('idle'), 1500);
         } catch (error) {
-          setAutoSaveStatus('idle');
+          console.error('Manual save error:', error);
         }
       }
     };
@@ -721,42 +719,183 @@ function Editor({ initialNoteType = 'private', noteId }: EditorProps) {
   //   return t(`tags.${tagKey}`, { defaultValue: tagKey });
   // };
 
+  // Use the slash commands hook
+  const slashCommands = useSlashCommands(insertMarkdown, fileInputRef);
 
+  // Função para calcular a posição do menu
+  const calculateMenuPosition = (textarea: HTMLTextAreaElement, cursorPosition: number) => {
+    // Obter posição real do cursor usando getBoundingClientRect
+    const rect = textarea.getBoundingClientRect();
+    const style = window.getComputedStyle(textarea);
+    
+    // Pegar o texto até o cursor
+    const textBeforeCursor = textarea.value.substring(0, cursorPosition);
+    const lines = textBeforeCursor.split('\n');
+    const currentLineIndex = lines.length - 1;
+    const currentLineText = lines[currentLineIndex];
+    
+    // Encontrar posição da barra / na linha atual
+    const slashIndex = currentLineText.lastIndexOf('/');
+    const textBeforeSlash = currentLineText.substring(0, slashIndex);
+    
+    // Criar elemento temporário para medir texto
+    const tempDiv = document.createElement('div');
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.visibility = 'hidden';
+    tempDiv.style.whiteSpace = 'pre';
+    tempDiv.style.font = style.font;
+    tempDiv.style.fontSize = style.fontSize;
+    tempDiv.style.fontFamily = style.fontFamily;
+    tempDiv.style.lineHeight = style.lineHeight;
+    tempDiv.textContent = textBeforeSlash;
+    document.body.appendChild(tempDiv);
+    
+    // Medir largura do texto antes da barra /
+    const textWidth = tempDiv.getBoundingClientRect().width;
+    document.body.removeChild(tempDiv);
+    
+    // Calcular posição baseada no padding do textarea
+    const paddingLeft = parseInt(style.paddingLeft, 10);
+    const paddingTop = parseInt(style.paddingTop, 10);
+    const lineHeight = parseInt(style.lineHeight, 10);
+    
+    // Posição absoluta baseada no textarea - SEMPRE para baixo
+    const left = rect.left + paddingLeft + textWidth;
+    const top = rect.top + paddingTop + (currentLineIndex * lineHeight) + lineHeight + 8; // +8px para espaçamento
+    
+    // Verificar limites da viewport
+    const viewportWidth = window.visualViewport?.width || window.innerWidth;
+    const menuWidth = 300;
+    
+    const finalTop = top; // Sempre usar posição para baixo
+    let finalLeft = left;
+    
+    // Ajustar apenas se o menu sair da tela horizontalmente
+    if (left + menuWidth > viewportWidth) {
+      finalLeft = viewportWidth - menuWidth - 10;
+    }
+    
+    // Garantir que não saia da tela pela esquerda
+    if (finalLeft < 10) {
+      finalLeft = 10;
+    }
+    
+    return { 
+      top: finalTop, 
+      left: finalLeft 
+    };
+  };
 
-  // Function to handle folder creation
-  // const createNewFolder = async () => {
-  //   // Prompt user for folder name
-  //   const folderName = prompt(
-  //     t("editor.enterFolderName", { defaultValue: "Enter folder name" }),
-  //   );
+  // Função para lidar com a entrada de texto e detectar /
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newContent = e.target.value;
+    const cursorPosition = e.target.selectionStart;
+    
+    setContent(newContent);
+    
+    // Verificar se o usuário digitou / e não há caracteres antes dele na linha
+    const textBeforeCursor = newContent.substring(0, cursorPosition);
+    const currentLineStart = textBeforeCursor.lastIndexOf('\n') + 1;
+    const currentLineText = textBeforeCursor.substring(currentLineStart);
+    
+    // Detectar se começou com / e capturar o filtro
+    const slashMatch = currentLineText.match(/^\/(.*)$/);
+    
+    if (slashMatch) {
+      const filter = slashMatch[1];
+      setSlashMenuFilter(filter);
+      setSelectedSlashIndex(0);
+      setShowSlashMenu(true);
+      
+      // Calcular posição do menu
+      const position = calculateMenuPosition(e.target, cursorPosition);
+      setSlashMenuPosition(position);
+    } else {
+      setShowSlashMenu(false);
+    }
+  };
 
-  //   // Check if folder name is valid
-  //   if (!folderName || !folderName.trim()) return;
+  // Função para aplicar comando do menu slash
+  const applySlashCommand = (command: typeof slashCommands[0]) => {
+    if (!textareaRef.current) return;
+    
+    const textarea = textareaRef.current;
+    const cursorPosition = textarea.selectionStart;
+    
+    // Encontrar o início do comando / na linha atual
+    const textBeforeCursor = content.substring(0, cursorPosition);
+    const currentLineStart = textBeforeCursor.lastIndexOf('\n') + 1;
+    const currentLineText = textBeforeCursor.substring(currentLineStart);
+    const slashMatch = currentLineText.match(/^\/(.*)$/);
+    
+    if (slashMatch) {
+      // Posição exata do / e do texto após ele
+      const slashPosition = currentLineStart;
+      const endPosition = cursorPosition;
+      
+      // Fechar o menu
+      setShowSlashMenu(false);
+      
+      // Executar a ação do comando
+      command.action();
+      
+      // If the command was not an image, remove the /command and insert markdown
+      if (!command.keywords.includes("image")) {
+        // Completely remove /command from current position
+        const beforeSlash = content.substring(0, slashPosition);
+        const afterCommand = content.substring(endPosition);
+        
+        // Determinar qual markdown inserir baseado nas keywords do comando
+        let markdownToInsert = "";
+        
+        if (command.keywords.includes("bold")) {
+          markdownToInsert = `**${t("editor.slashMenu.placeholders.bold")}**`;
+        } else if (command.keywords.includes("italic")) {
+          markdownToInsert = `*${t("editor.slashMenu.placeholders.italic")}*`;
+        } else if (command.keywords.includes("h1")) {
+          markdownToInsert = `# ${t("editor.slashMenu.placeholders.heading1")}`;
+        } else if (command.keywords.includes("h2")) {
+          markdownToInsert = `## ${t("editor.slashMenu.placeholders.heading2")}`;
+        } else if (command.keywords.includes("code")) {
+          markdownToInsert = `\`${t("editor.slashMenu.placeholders.code")}\``;
+        } else if (command.keywords.includes("ordered")) {
+          markdownToInsert = t("editor.slashMenu.placeholders.orderedList");
+        } else if (command.keywords.includes("unordered")) {
+          markdownToInsert = t("editor.slashMenu.placeholders.unorderedList");
+        } else if (command.keywords.includes("link")) {
+          markdownToInsert = `[${t("editor.slashMenu.placeholders.linkText")}](${t("editor.slashMenu.placeholders.linkUrl")})`;
+        }
+        
+        // Criar o novo conteúdo com o markdown inserido no lugar do comando /
+        const newContent = beforeSlash + markdownToInsert + afterCommand;
+        setContent(newContent);
+        
+        // Posicionar cursor após o markdown inserido
+        setTimeout(() => {
+          textarea.focus();
+          const newCursorPos = slashPosition + markdownToInsert.length;
+          textarea.setSelectionRange(newCursorPos, newCursorPos);
+        }, 0);
+      } else {
+        // For image command, just remove the /image
+        const beforeSlash = content.substring(0, slashPosition);
+        const afterCommand = content.substring(endPosition);
+        const newContent = beforeSlash + afterCommand;
+        setContent(newContent);
+        
+        // Posicionar cursor onde estava o /
+        setTimeout(() => {
+          textarea.focus();
+          textarea.setSelectionRange(slashPosition, slashPosition);
+        }, 0);
+      }
+    }
+  };
 
-  //   if (!user) {
-  //     alert(t("editor.loginRequired"));
-  //     return;
-  //   }
-
-  //   try {
-  //     const { data, error } = await supabase
-  //       .from("folders")
-  //       .insert([{ name: folderName.trim(), user_id: user.id }])
-  //       .select();
-
-  //     if (error) throw error;
-
-  //     if (data && data[0]) {
-  //       const newFolder = { id: data[0].id, name: data[0].name };
-  //       setFolders([...folders, newFolder]);
-  //       setSelectedFolder(newFolder);
-  //       setShowFolderDropdown(false);
-  //     }
-  //   } catch (error) {
-  //     console.error("Error creating folder:", error);
-  //     alert(t("editor.folderCreateError", { defaultValue: "" }));
-  //   }
-  // };
+  // Resetar índice selecionado quando o filtro muda
+  useEffect(() => {
+    setSelectedSlashIndex(0);
+  }, [slashMenuFilter]);
 
   return (
     <div
@@ -766,21 +905,159 @@ function Editor({ initialNoteType = 'private', noteId }: EditorProps) {
       <Profile />
       <div className="mx-auto max-w-7xl w-full h-full flex flex-col flex-grow">
         <div className="bg-[var(--background)] overflow-hidden flex flex-col flex-grow h-full  transition-all duration-300">
+          {/* Toolbar Section - Moved to top */}
+          <div className="bg-[var(--container)] bg-opacity-30   text-sm px-2 sm:px-3 py-2 text-[var(--foreground)] flex justify-between items-center sticky top-0 z-10">
+            <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+              <div className="flex items-center space-x-1 mr-2">
+                <button
+                  className="p-1.5 rounded-md hover:bg-[var(--accent-color)] hover:text-white transition-colors flex items-center justify-center"
+                  onClick={() => insertMarkdown("orderedList")}
+                  title={t("editor.orderedList")}
+                >
+                  <ListOrdered size={18} />
+                </button>
+                <button
+                  className="p-1.5 rounded-md hover:bg-[var(--accent-color)] hover:text-white transition-colors flex items-center justify-center"
+                  onClick={() => insertMarkdown("unorderedList")}
+                  title={t("editor.unorderedList")}
+                >
+                  <LayoutList size={18} />
+                </button>
+                <button
+                  className="p-1.5 rounded-md hover:bg-[var(--accent-color)] hover:text-white transition-colors font-bold"
+                  onClick={() => insertMarkdown("bold")}
+                  title={t("editor.bold")}
+                >
+                  B
+                </button>
+                <button
+                  className="p-1.5 rounded-md hover:bg-[var(--accent-color)] hover:text-white transition-colors italic"
+                  onClick={() => insertMarkdown("italic")}
+                  title={t("editor.italic")}
+                >
+                  I
+                </button>
+                <button
+                  className="p-1.5 rounded-md hover:bg-[var(--accent-color)] hover:text-white transition-colors"
+                  onClick={() => insertMarkdown("link")}
+                  title={t("editor.link")}
+                >
+                  🔗
+                </button>
+              </div>
+
+              <div className="flex items-center space-x-1 mr-2">
+                <button
+                  className="p-1.5 rounded-md hover:bg-[var(--accent-color)] hover:text-white transition-colors"
+                  onClick={() => insertMarkdown("heading1")}
+                  title={t("editor.heading1")}
+                >
+                  H1
+                </button>
+                <button
+                  className="p-1.5 rounded-md hover:bg-[var(--accent-color)] hover:text-white transition-colors"
+                  onClick={() => insertMarkdown("heading2")}
+                  title={t("editor.heading2")}
+                >
+                  H2
+                </button>
+              </div>
+
+              <div className="flex items-center space-x-1 mr-2">
+                <button
+                  className="p-1.5 rounded-md hover:bg-[var(--accent-color)] hover:text-white transition-colors"
+                  onClick={() => insertMarkdown("code")}
+                  title={t("editor.code")}
+                >
+                  &lt;/&gt;
+                </button>
+                <button
+                  className="p-1.5 rounded-md hover:bg-[var(--accent-color)] hover:text-white transition-colors  sm:flex items-center justify-center relative"
+                  onClick={() => {
+                    if (imageUploadLoading) return;
+                    if (fileInputRef.current) {
+                      fileInputRef.current.click();
+                    } else {
+                      insertMarkdown("image");
+                    }
+                  }}
+                  title={t("editor.insertImage")}
+                >
+                  <Image size={16} />
+                  {imageUploadLoading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-[var(--accent-color)] bg-opacity-70 rounded-md">
+                      <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  )}
+                </button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleImageUpload}
+                  accept="image/*"
+                  style={{ display: "none" }}
+                />
+              </div>
+
+              <div className="flex items-center space-x-1 mr-2">
+                <button
+                  onClick={() =>
+                    setShowEmojiPickerContent(!showEmojiPickerContent)
+                  }
+                  className="p-1.5 rounded-md hover:bg-[var(--accent-color)] hover:text-white transition-colors"
+                  title={t("editor.addEmoji")}
+                >
+                  <SmilePlus size={16} />
+                </button>
+                {showEmojiPickerContent && (
+                  <div className="absolute z-50 mt-36 right-4 shadow-xl rounded-lg overflow-hidden">
+                    <EmojiPicker
+                      onEmojiClick={handleEmojiSelectContent}
+                      skinTonesDisabled
+                      width={280}
+                      height={350}
+                      previewConfig={{ showPreview: false }}
+                      theme={Theme.DARK}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                className={`rounded-md px-3 py-1.5 transition-all duration-200 flex items-center gap-1.5 ${
+                  isPreviewMode
+                    ? "bg-transparent text-[var(--foreground)] border border-[var(--border-color)]"
+                    : "bg-gradient-to-r from-[var(--button-theme)] to-[var(--theme2)]/40 border border-[var(--border-theme)]/30 text-[var(--text-theme)]"
+                }`}
+                onClick={() => setIsPreviewMode(false)}
+                disabled={!isPreviewMode}
+              >
+                <Edit size={16} /> {t("editor.edit")}
+              </button>
+              <button
+                className={`rounded-md px-3 py-1.5 transition-all duration-200 flex items-center gap-1.5 ${
+                  !isPreviewMode
+                    ? "bg-transparent text-[var(--foreground)] border border-[var(--border-color)]"
+                    : "bg-gradient-to-r from-[var(--button-theme)] to-[var(--theme2)]/40 border border-[var(--border-theme)]/30 text-[var(--text-theme)]"
+                }`}
+                onClick={() => setIsPreviewMode(true)}
+                disabled={isPreviewMode}
+              >
+                <Eye size={16} /> {t("editor.preview")}
+              </button>
+            </div>
+          </div>
+
           {/* Title Section */}
           <div className="p-5 sm:p-6 relative">
-            {/* Realtime Connection Indicator + Auto-save status */}
+            {/* Realtime Connection Indicator */}
             <div className="absolute top-2 right-2 flex items-center gap-3 text-xs">
               <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
               <span className="text-[var(--foreground-light)]">
                 {isConnected ? t('editor.connected') : t('editor.disconnected')}
               </span>
-              {/* Auto-save status */}
-              {autoSaveStatus === 'saving' && (
-                <span className="text-yellow-400 animate-pulse">{t('editor.saving')}</span>
-              )}
-              {autoSaveStatus === 'saved' && (
-                <span className="text-green-400">{t('editor.saved')}</span>
-              )}
             </div>
 
             {/* Botão de salvar manual opcional, pode ser removido se quiser só autosave */}
@@ -978,203 +1255,32 @@ function Editor({ initialNoteType = 'private', noteId }: EditorProps) {
             </div>
           </div>
 
-          {/* Toolbar Section */}
-          <div className="bg-[var(--container)] bg-opacity-30   text-sm px-2 sm:px-3 py-2 text-[var(--foreground)] flex justify-between items-center sticky top-0 z-10">
-            <div className="flex flex-wrap items-center gap-1 sm:gap-2">
-              <div className="flex items-center space-x-1 mr-2">
-                <button
-                  className="p-1.5 rounded-md hover:bg-[var(--accent-color)] hover:text-white transition-colors flex items-center justify-center"
-                  onClick={() => insertMarkdown("orderedList")}
-                  title={t("editor.orderedList")}
-                >
-                  <ListOrdered size={18} />
-                </button>
-                <button
-                  className="p-1.5 rounded-md hover:bg-[var(--accent-color)] hover:text-white transition-colors flex items-center justify-center"
-                  onClick={() => insertMarkdown("unorderedList")}
-                  title={t("editor.unorderedList")}
-                >
-                  <LayoutList size={18} />
-                </button>
-                <button
-                  className="p-1.5 rounded-md hover:bg-[var(--accent-color)] hover:text-white transition-colors font-bold"
-                  onClick={() => insertMarkdown("bold")}
-                  title={t("editor.bold")}
-                >
-                  B
-                </button>
-                <button
-                  className="p-1.5 rounded-md hover:bg-[var(--accent-color)] hover:text-white transition-colors italic"
-                  onClick={() => insertMarkdown("italic")}
-                  title={t("editor.italic")}
-                >
-                  I
-                </button>
-                <button
-                  className="p-1.5 rounded-md hover:bg-[var(--accent-color)] hover:text-white transition-colors"
-                  onClick={() => insertMarkdown("link")}
-                  title={t("editor.link")}
-                >
-                  🔗
-                </button>
-              </div>
-
-              <div className="flex items-center space-x-1 mr-2">
-                <button
-                  className="p-1.5 rounded-md hover:bg-[var(--accent-color)] hover:text-white transition-colors"
-                  onClick={() => insertMarkdown("heading1")}
-                  title={t("editor.heading1")}
-                >
-                  H1
-                </button>
-                <button
-                  className="p-1.5 rounded-md hover:bg-[var(--accent-color)] hover:text-white transition-colors"
-                  onClick={() => insertMarkdown("heading2")}
-                  title={t("editor.heading2")}
-                >
-                  H2
-                </button>
-              </div>
-
-              <div className="flex items-center space-x-1 mr-2">
-                <button
-                  className="p-1.5 rounded-md hover:bg-[var(--accent-color)] hover:text-white transition-colors"
-                  onClick={() => insertMarkdown("code")}
-                  title={t("editor.code")}
-                >
-                  &lt;/&gt;
-                </button>
-                <button
-                  className="p-1.5 rounded-md hover:bg-[var(--accent-color)] hover:text-white transition-colors  sm:flex items-center justify-center relative"
-                  onClick={() => {
-                    if (imageUploadLoading) return;
-                    if (fileInputRef.current) {
-                      fileInputRef.current.click();
-                    } else {
-                      insertMarkdown("image");
-                    }
-                  }}
-                  title={t("editor.insertImage")}
-                >
-                  <Image size={16} />
-                  {imageUploadLoading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-[var(--accent-color)] bg-opacity-70 rounded-md">
-                      <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    </div>
-                  )}
-                </button>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleImageUpload}
-                  accept="image/*"
-                  style={{ display: "none" }}
-                />
-              </div>
-
-              <div className="flex items-center space-x-1 mr-2">
-                <button
-                  onClick={() =>
-                    setShowEmojiPickerContent(!showEmojiPickerContent)
-                  }
-                  className="p-1.5 rounded-md hover:bg-[var(--accent-color)] hover:text-white transition-colors"
-                  title={t("editor.addEmoji")}
-                >
-                  <SmilePlus size={16} />
-                </button>
-                {showEmojiPickerContent && (
-                  <div className="absolute z-50 mt-36 right-4 shadow-xl rounded-lg overflow-hidden">
-                    <EmojiPicker
-                      onEmojiClick={handleEmojiSelectContent}
-                      skinTonesDisabled
-                      width={280}
-                      height={350}
-                      previewConfig={{ showPreview: false }}
-                      theme={Theme.DARK}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                className={`rounded-md px-3 py-1.5 transition-all duration-200 flex items-center gap-1.5 ${
-                  isPreviewMode
-                    ? "bg-transparent text-[var(--foreground)] border border-[var(--border-color)]"
-                    : "bg-gradient-to-r from-[var(--button-theme)] to-[var(--theme2)]/40 border border-[var(--border-theme)]/30 text-[var(--text-theme)]"
-                }`}
-                onClick={() => setIsPreviewMode(false)}
-                disabled={!isPreviewMode}
-              >
-                <Edit size={16} /> {t("editor.edit")}
-              </button>
-              <button
-                className={`rounded-md px-3 py-1.5 transition-all duration-200 flex items-center gap-1.5 ${
-                  !isPreviewMode
-                    ? "bg-transparent text-[var(--foreground)] border border-[var(--border-color)]"
-                    : "bg-gradient-to-r from-[var(--button-theme)] to-[var(--theme2)]/40 border border-[var(--border-theme)]/30 text-[var(--text-theme)]"
-                }`}
-                onClick={() => setIsPreviewMode(true)}
-                disabled={isPreviewMode}
-              >
-                <Eye size={16} /> {t("editor.preview")}
-              </button>
-            </div>
-          </div>
-
-          {/* Mobile Toolbar */}
-          {/* <div className="bg-[var(--container)] py-2 px-2 flex justify-between items-center sm:hidden">
-            <div className="flex items-center space-x-2">
-              <button
-                className="p-1.5 rounded-md hover:bg-[var(--accent-color)] hover:text-white transition-colors flex items-center justify-center"
-                onClick={() => insertMarkdown("orderedList")}
-                title={t("editor.orderedList")}
-              >
-                <ListOrdered size={18} />
-              </button>
-              <button
-                className="p-1.5 rounded-md hover:bg-[var(--accent-color)] hover:text-white transition-colors flex items-center justify-center"
-                onClick={() => insertMarkdown("unorderedList")}
-                title={t("editor.unorderedList")}
-              >
-                <LayoutList size={18} />
-              </button>
-              <button
-                className="p-1.5 rounded-md hover:bg-[var(--accent-color)] hover:text-white transition-colors flex items-center justify-center relative"
-                onClick={() => {
-                  if (imageUploadLoading) return;
-                  if (fileInputRef.current) {
-                    fileInputRef.current.click();
-                  } else {
-                    insertMarkdown("image");
-                  }
-                }}
-                title={t("editor.insertImage")}
-              >
-                <Image size={18} />
-                {imageUploadLoading && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-[var(--accent-color)] bg-opacity-70 rounded-md">
-                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  </div>
-                )}
-              </button>
-            </div>
-          </div> */}
-
           {/* Content Area */}
-          <div className=" scrollbar bg-[var(--background)] relative">
+          <div className=" scrollbar bg-[var(--background)] relative flex-grow">
             {!isPreviewMode ? (
               <div className="h-full relative">
                 {" "}
                 <textarea
+                  ref={textareaRef}
                   className="p-5 sm:p-6 w-full bg-transparent text-[var(--foreground)] resize-none focus:outline-none min-h-[270px] sm:min-h-[370px] h-full text-base sm:text-lg overflow-auto transition-all duration-300"
                   placeholder={t("editor.contentPlaceholder")}
                   maxLength={15000}
                   value={content}
-                  onChange={(e) => setContent(e.target.value)}
+                  onChange={handleTextareaChange}
                   style={{ fontSize: "18px", lineHeight: "1.7" }}
                   onDragOver={(e) => e.preventDefault()}
+                />
+                
+                {/* Menu de comandos com / */}
+                <SlashCommandMenu
+                  isVisible={showSlashMenu}
+                  position={slashMenuPosition}
+                  filter={slashMenuFilter}
+                  selectedIndex={selectedSlashIndex}
+                  commands={slashCommands}
+                  onSelectCommand={applySlashCommand}
+                  onSelectIndex={setSelectedSlashIndex}
+                  onClose={() => setShowSlashMenu(false)}
                 />
                 {/* <div className="absolute bottom-4 right-4">
                   <ClientLayout />
@@ -1193,199 +1299,6 @@ function Editor({ initialNoteType = 'private', noteId }: EditorProps) {
                 )}
               </div>
             )}
-          </div>
-
-          {/* Tags Search Section
-          <div className="p-3 sm:p-4 bg-[var(--container)] bg-opacity-20">
-            <div className="flex items-center gap-2">
-              <span className="text-xs sm:text-sm text-[var(--foreground)] font-medium">
-                {t("editor.tags")}
-              </span>
-              <div className="relative flex-grow">
-                <input
-                  type="text"
-                  placeholder={t("editor.searchTags")}
-                  value={tagSearchTerm}
-                  onChange={(e) => setTagSearchTerm(e.target.value)}
-                  className="w-full px-3 py-2 text-xs sm:text-sm rounded-md bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)] transition-all duration-200"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-1.5 sm:gap-2 p-3 sm:p-4 overflow-y-auto max-h-28 scrollbar bg-[var(--background)] ">
-            {[
-              "agenda",
-              "friendship",
-              "analysis",
-              "animation",
-              "learning",
-              "art",
-              "article",
-              "selfKnowledge",
-              "selfCare",
-              "selfEsteem",
-              "selfDiscipline",
-              "automation",
-              "adventure",
-              "evaluation",
-              "bug",
-              "checklist",
-              "quote",
-              "cloud",
-              "code",
-              "collection",
-              "community",
-              "achievement",
-              "stories",
-              "conversation",
-              "culture",
-              "resume",
-              "course",
-              "debate",
-              "vent",
-              "design",
-              "development",
-              "destination",
-              "dev",
-              "diary",
-              "tip",
-              "travelTips",
-              "diet",
-              "documentation",
-              "documentary",
-              "emotions",
-              "entrepreneurship",
-              "draft",
-              "study",
-              "event",
-              "culturalEvent",
-              "exercise",
-              "experience",
-              "family",
-              "feedback",
-              "movie",
-              "finance",
-              "fitness",
-              "focus",
-              "photography",
-              "freelance",
-              "management",
-              "habits",
-              "healthyHabits",
-              "hardware",
-              "history",
-              "hobby",
-              "idea",
-              "important",
-              "influence",
-              "inspiration",
-              "visualInspiration",
-              "artificialIntelligence",
-              "investments",
-              "game",
-              "reminder",
-              "leadership",
-              "listing",
-              "lists",
-              "book",
-              "marketing",
-              "meditation",
-              "memories",
-              "mentoring",
-              "goal",
-              "backpacking",
-              "motivation",
-              "music",
-              "nature",
-              "business",
-              "networking",
-              "notes",
-              "nutrition",
-              "objective",
-              "opinion",
-              "organization",
-              "tour",
-              "research",
-              "personal",
-              "planning",
-              "podcast",
-              "poetry",
-              "priority",
-              "programming",
-              "project",
-              "prototype",
-              "recipe",
-              "recommendations",
-              "references",
-              "reflection",
-              "relationships",
-              "summary",
-              "meeting",
-              "script",
-              "routine",
-              "salary",
-              "health",
-              "mentalHealth",
-              "security",
-              "feelings",
-              "series",
-              "system",
-              "software",
-              "sleep",
-              "task",
-              "theater",
-              "trend",
-              "therapy",
-              "thesis",
-              "tests",
-              "work",
-              "academicWork",
-              "tutorial",
-              "sales",
-              "travel",
-              "volunteering",
-            ]
-              .filter(
-                (tagKey) =>
-                  tagSearchTerm === "" ||
-                  translateTag(tagKey)
-                    .toLowerCase()
-                    .includes(tagSearchTerm.toLowerCase()),
-              )
-              .map((tagKey) => (
-                <button
-                  key={tagKey}
-                  onClick={() => toggleTag(translateTag(tagKey))}
-                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
-                    selectedTags.includes(translateTag(tagKey))
-                      ? "bg-[var(--accent-color)] text-white shadow-sm"
-                      : "bg-[var(--container)] text-[var(--foreground)] hover:bg-opacity-80"
-                  }`}
-                >
-                  #{translateTag(tagKey)}
-                </button>
-              ))}
-            {tagSearchTerm !== "" &&
-              [
-                // List of tag keys
-              ].filter((tagKey) =>
-                translateTag(tagKey)
-                  .toLowerCase()
-                  .includes(tagSearchTerm.toLowerCase()),
-              ).length === 0 && (
-                <div className="w-full text-center py-2 text-sm text-[var(--foreground)] italic opacity-70">
-                  {t("editor.noTagsFound")} {tagSearchTerm}
-                </div>
-              )}
-          </div> */}
-
-          {/* Footer Section */}
-          <div className="flex justify-between items-center p-4 sm:p-5 bg-[var(--container)]">
-            <div className="text-xs sm:text-sm text-[var(--foreground)] opacity-70">
-              <span className="font-medium">{content.length}</span> / 15000{" "}
-              {t("editor.characters")}
-            </div>
           </div>
         </div>
 

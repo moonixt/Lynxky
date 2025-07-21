@@ -1642,19 +1642,36 @@ export const useRealtimePublicNoteCollaboration = (
   return;
 };
 
-// Hook para notas privadas (SEM realtime)
+// Hook para notas privadas (SEM realtime) com infinite scrolling
 export const usePrivateNotes = (userId: string | undefined) => {
   const [notes, setNotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
+  const [isFetching, setIsFetching] = useState(false);
 
-  const fetchPrivateNotes = async () => {
-    if (!userId) return;
+  const NOTES_PER_PAGE = 20;
+
+  const fetchPrivateNotes = useCallback(async (isNewFetch = false) => {
+    if (!userId || isFetching) return;
+    
+    setIsFetching(true);
+    if (isNewFetch) {
+      setLoading(true);
+    }
+
+    const currentPage = isNewFetch ? 0 : page;
+    const from = currentPage * NOTES_PER_PAGE;
+    const to = from + NOTES_PER_PAGE - 1;
     
     try {
       const { data, error } = await supabase
-        .from('notes') // Tabela original
+        .from('notes')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .order('favorite', { ascending: false })
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
       
@@ -1676,72 +1693,189 @@ export const usePrivateNotes = (userId: string | undefined) => {
         }
       });
       
-      // Ordenar: favoritas primeiro, depois por data de criação (mais recentes primeiro)
-      const sortedNotes = decryptedNotes.sort((a, b) => {
-        // Se uma é favorita e a outra não, a favorita vem primeiro
-        if (a.favorite && !b.favorite) return -1;
-        if (!a.favorite && b.favorite) return 1;
-        
-        // Se ambas são favoritas ou nenhuma é favorita, ordenar por data de criação (mais recente primeiro)
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      });
+      if (isNewFetch) {
+        setNotes(decryptedNotes);
+        setPage(1);
+      } else {
+        setNotes(prev => {
+          const existingIds = new Set(prev.map(n => n.id));
+          const newNotes = decryptedNotes.filter(n => !existingIds.has(n.id));
+          return [...prev, ...newNotes];
+        });
+        setPage(prev => prev + 1);
+      }
       
-      setNotes(sortedNotes);
+      setHasMore(data.length === NOTES_PER_PAGE);
     } catch (error) {
       console.error('Error fetching private notes:', error);
     } finally {
       setLoading(false);
+      setIsFetching(false);
     }
-  };
+  }, [userId, page, isFetching]);
+
+  const loadMore = useCallback(() => {
+    if (!loading && hasMore && !isFetching) {
+      fetchPrivateNotes(false);
+    }
+  }, [loading, hasMore, isFetching, fetchPrivateNotes]);
+
+  const refresh = useCallback(() => {
+    setPage(0);
+    setHasMore(true);
+    fetchPrivateNotes(true);
+  }, [fetchPrivateNotes]);
 
   useEffect(() => {
-    fetchPrivateNotes();
+    if (userId) {
+      refresh();
+    } else {
+      setNotes([]);
+      setLoading(false);
+      setHasMore(true);
+      setPage(0);
+    }
   }, [userId]);
 
   return { 
     notes, 
     loading, 
-    refresh: fetchPrivateNotes,
+    hasMore,
+    refresh,
+    loadMore,
     type: 'private' as const
   };
 };
 
-// Hook para notas públicas (COM realtime)
+// Hook para notas públicas (COM realtime) com infinite scrolling
 export const usePublicNotes = (userId: string | undefined) => {
   const [notes, setNotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
+  const [isFetching, setIsFetching] = useState(false);
 
-  const fetchPublicNotes = async () => {
-    if (!userId) {
-      console.log('⚠️ No userId provided for public notes');
+  const NOTES_PER_PAGE = 20;
+
+  const fetchPublicNotes = useCallback(async (isNewFetch = false) => {
+    if (!userId || isFetching) {
+      console.log('⚠️ No userId provided or already fetching public notes');
       return;
     }
     
-    console.log('🔄 Fetching public notes for user:', userId);
+    setIsFetching(true);
+    if (isNewFetch) {
+      setLoading(true);
+    }
+
+    const currentPage = isNewFetch ? 0 : page;
+    const from = currentPage * NOTES_PER_PAGE;
+    
+    console.log('🔄 Fetching public notes for user:', userId, 'page:', currentPage);
     
     try {
-      const publicNotes = await realtimeManager.getPublicNotes(userId);
-      console.log('📄 Public notes received:', publicNotes);
-      setNotes(publicNotes);
+      // Fetch owned public notes
+      const { data: ownedNotes, error: ownedError } = await supabase
+        .from('public_notes')
+        .select('*')
+        .eq('owner_id', userId)
+        .order('updated_at', { ascending: false })
+        .range(from, from + NOTES_PER_PAGE - 1);
+
+      if (ownedError) throw ownedError;
+
+      // Fetch shared public notes
+      const { data: sharedNotes, error: sharedError } = await supabase
+        .from('note_shares')
+        .select(`
+          public_note_id,
+          permission,
+          shared_with_id,
+          public_notes!inner(*)
+        `)
+        .eq('shared_with_id', userId)
+        .not('public_note_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .range(from, from + NOTES_PER_PAGE - 1);
+
+      if (sharedError) {
+        console.warn('Error fetching shared notes:', sharedError);
+      }
+
+      // Process shared notes
+      const collaborativeNotes = (sharedNotes || []).map(share => ({
+        ...share.public_notes,
+        is_collaborative: true,
+        permission: share.permission
+      }));
+
+      // Combine and deduplicate notes
+      const allNotes = [...(ownedNotes || []), ...collaborativeNotes];
+      const uniqueNotes = allNotes.filter((note, index, self) => 
+        self.findIndex(n => n.id === note.id) === index
+      );
+
+      // Convert to NoteType format
+      const formattedNotes = uniqueNotes.map(note => ({
+        type: 'public' as const,
+        id: note.id,
+        title: note.title,
+        content: note.content,
+        owner_id: note.owner_id,
+        created_at: note.created_at,
+        updated_at: note.updated_at,
+        allow_anonymous_view: note.allow_anonymous_view,
+        allow_anonymous_edit: note.allow_anonymous_edit,
+        is_collaborative: true,
+      }));
+
+      console.log('📄 Public notes received:', formattedNotes.length);
+
+      if (isNewFetch) {
+        setNotes(formattedNotes);
+        setPage(1);
+      } else {
+        setNotes(prev => {
+          const existingIds = new Set(prev.map(n => n.id));
+          const newNotes = formattedNotes.filter(n => !existingIds.has(n.id));
+          return [...prev, ...newNotes];
+        });
+        setPage(prev => prev + 1);
+      }
+      
+      setHasMore(allNotes.length === NOTES_PER_PAGE);
     } catch (error) {
       console.error('❌ Error fetching public notes:', error);
     } finally {
       setLoading(false);
+      setIsFetching(false);
     }
-  };
+  }, [userId, page, isFetching]);
+
+  const loadMore = useCallback(() => {
+    if (!loading && hasMore && !isFetching) {
+      fetchPublicNotes(false);
+    }
+  }, [loading, hasMore, isFetching, fetchPublicNotes]);
+
+  const refresh = useCallback(() => {
+    setPage(0);
+    setHasMore(true);
+    fetchPublicNotes(true);
+  }, [fetchPublicNotes]);
 
   useEffect(() => {
     if (!userId) return;
 
     // Fetch inicial
-    fetchPublicNotes();
+    refresh();
 
     // Subscrever a mudanças em tempo real
     realtimeManager.subscribeToPublicNotes(userId, {
       onPublicNotesChange: (payload) => {
         console.log('🔄 Public notes updated:', payload);
-        fetchPublicNotes(); // Recarregar notas públicas
+        refresh(); // Recarregar notas públicas
       }
     });
 
@@ -1761,7 +1895,9 @@ export const usePublicNotes = (userId: string | undefined) => {
     notes, 
     loading, 
     isConnected,
-    refresh: fetchPublicNotes,
+    hasMore,
+    refresh,
+    loadMore,
     type: 'public' as const
   };
 };

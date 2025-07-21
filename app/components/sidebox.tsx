@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   // PlusCircle,
 
@@ -21,7 +21,8 @@ import {
   // Book,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
 import ThemeToggle from "./ThemeToggle";
@@ -75,7 +76,14 @@ export default function Sidebox({
   const [showFoldersTab, setShowFoldersTab] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const notesLoadedRef = useRef(false);
   const router = useRouter();
+  const pathname = usePathname();
+
+  // Function to check if a note is currently active
+  const isNoteActive = (noteId: string) => {
+    return pathname === `/notes/${noteId}`;
+  };
   const { user } = useAuth();
   const [, setError] = useState<string | null>(null);
   const { t } = useTranslation();
@@ -156,6 +164,7 @@ export default function Sidebox({
       }));
 
       setNotes(decryptedNotes);
+      notesLoadedRef.current = true;
     } catch (error) {
       console.error("Erro ao buscar notas:", error);
     } finally {
@@ -188,13 +197,16 @@ export default function Sidebox({
   };
 
   useEffect(() => {
-    if (user) {
+    if (user && !notesLoadedRef.current) {
+      // Só carrega as notas se o usuário estiver logado e ainda não carregamos as notas
       fetchNotes();
       fetchFolders();
-    } else {
+      notesLoadedRef.current = true;
+    } else if (!user) {
       setNotes([]);
       setFolders([]);
       setLoading(false);
+      notesLoadedRef.current = false;
     }
   }, [user]);
 
@@ -203,7 +215,7 @@ export default function Sidebox({
     // Função que será chamada quando uma nota for salva
     const handleNoteSaved = () => {
       if (user) {
-        fetchNotes();
+        fetchNotes(); // Reset to show new notes
         fetchFolders();
       }
     };
@@ -225,10 +237,16 @@ export default function Sidebox({
     );
   });
 
-  function getExcerpt(content: string | undefined, maxLength = 60) {
+  function getExcerpt(content: string | undefined, maxLength = 24) {
     if (!content) return "";
     if (content.length <= maxLength) return content;
     return content.substring(0, maxLength) + "...";
+  }
+
+  function getTitleExcerpt(title: string | undefined, maxLength = 24) {
+    if (!title) return "";
+    if (title.length <= maxLength) return title;
+    return title.substring(0, maxLength) + "...";
   }
 
   function formatDate(dateString: string) {
@@ -403,9 +421,10 @@ export default function Sidebox({
       console.error("Erro ao mover nota:", error);
     }
   };
+
   return (
     <div
-      className={`w-80 h-screen fixed left-0 top-0 z-50 transition-all duration-300 ease-in-out ${
+      className={`w-80 sm:w-80 w-full max-w-80 h-screen fixed left-0 top-0 z-50 transition-all duration-300 ease-in-out ${
         isVisible ? "translate-x-0" : "-translate-x-full"
       }`}
       style={{
@@ -415,77 +434,75 @@ export default function Sidebox({
       {" "}
       {/* Sidebar */}
       <aside
-        className="w-full h-full bg-[var(--background)]/85 backdrop-blur text-[var(--text-color)] shadow-xl overflow-y-auto scrollbar"
+        className="w-full h-full bg-[var(--background)]/95 backdrop-blur-xl text-[var(--text-color)] shadow-2xl border-r border-[var(--foreground)]/10 overflow-y-auto scrollbar"
         style={{
           paddingBottom: "60px", // Leave space for bottom bar
         }}
       >
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="p-4">
-            <div className="flex items-center justify-center">
-              <h1 className="text-xl font-bold flex items-center">
-                <BookOpen size={20} className="text-[var(--foreground)]" />
+          <div className="p-4 sm:p-6 border-b border-[var(--foreground)]/10">
+            <div className="flex items-center justify-center mb-3 sm:mb-4">
+              <h1 className="text-xl sm:text-2xl font-bold flex items-center">
+                <div className="p-1.5 sm:p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg sm:rounded-xl mr-2 sm:mr-3 shadow-lg">
+                  <Image
+                    src="/icon-512x512.png"
+                    alt="Lynxky"
+                    width={20}
+                    height={20}
+                    className="w-8 h-8  rounded-full object-cover shadow-md"
+                  />
+                </div>
                 {user ? (
                   <Link href={"/dashboard"}>
                     {" "}
                     <span
-                      className="text-[var(--foreground)] px-2 py-1 rounded-lg transition-colors duration-200 hover:bg-[var(--container)] hover:shadow-sm font-medium"
+                      className="text-[var(--foreground)] px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl transition-all duration-200 hover:bg-[var(--container)]/50 hover:shadow-sm font-semibold text-base sm:text-lg"
                       onClick={() => toggleMobileSidebar()}
                     >
                       {t("sidebar.myWorkspace")}
                     </span>
                   </Link>
                 ) : (
-                  <span className="text-[var(--foreground)] pl-2">Lynxky</span>
+                  <span className="text-[var(--foreground)] pl-2 sm:pl-3 text-base sm:text-lg font-semibold">Lynxky</span>
                 )}
               </h1>
-
-              {/* <div className="flex items-center space-x-2">
-                <Link href="/reader">
-                  <div                    className="p-2 rounded-full hover:bg-[var(--container)] transition-colors"
-                    title="Ebook Reader"
-                    onClick={() => toggleMobileSidebar()}
-                  >
-                    <Book size={20} className="text-[var(--foreground)]" />
-                  </div>
-                </Link>
-                <button
-                  onClick={() => router.push("/editor")}
-                  className="p-2 rounded-full hover:bg-[var(--container)] transition-colors"
-                  title={t("sidebar.newNote")}
-                >
-                  <PlusCircle size={20} className="text-[var(--foreground)]" />
-                </button>
-              </div> */}
             </div>
 
             {/* Search */}
-            <div className="relative mt-3">
+            <div className="relative">
               <input
                 type="text"
                 placeholder={t("sidebar.searchNotes")}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full p-2 pl-8 bg-[var(--container)] placeholder-[var(--foreground)] rounded-lg border border-slate-700 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                className="w-full p-2.5 sm:p-3 pl-8 sm:pl-10 bg-[var(--container)]/50 placeholder-[var(--foreground)]/60 rounded-lg sm:rounded-xl border border-[var(--foreground)]/10 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 focus:bg-[var(--container)]/70 transition-all duration-200 outline-none"
               />
               <Search
                 size={16}
-                className="absolute left-2 top-2.5 text-[var(--foreground)]"
+                className="absolute left-2.5 sm:left-3 top-2.5 sm:top-3 text-[var(--foreground)]/60"
               />
             </div>
           </div>
           {/* Navigation Tabs */}
-          <div className="flex">
+          <div className="flex bg-[var(--container)]/30 mx-3 sm:mx-4 rounded-lg sm:rounded-xl p-0.5 sm:p-1 mb-3 sm:mb-4">
             <button
               onClick={() => setShowFoldersTab(false)}
-              className={`flex-1 py-3 px-2 text-center text-sm font-medium transition-colors ${!showFoldersTab ? "border-b-2 border-blue-500 text-[var(--text-color)]" : "text-[var(--foreground)]"}`}
+              className={`flex-1 py-2 sm:py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-semibold rounded-md sm:rounded-lg transition-all duration-200 ${
+                !showFoldersTab 
+                  ? " bg-gradient-to-br from-blue-500 to-purple-600  text-white shadow-sm" 
+                  : "text-[var(--foreground)]/70 hover:text-[var(--foreground)] hover:bg-[var(--container)]/50"
+              }`}
             >
               {t("sidebar.notes")}
             </button>
             <button
               onClick={() => setShowFoldersTab(true)}
-              className={`flex-1 py-3 px-2 text-center text-sm font-medium transition-colors ${showFoldersTab ? "border-b-2 border-blue-500 text-[var(--text-color)]" : "text-[var(--foreground)]"}`}
+              className={`flex-1 py-2 sm:py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-semibold rounded-md sm:rounded-lg transition-all duration-200 ${
+                showFoldersTab 
+                  ? " bg-gradient-to-br from-blue-500 to-purple-600  text-white shadow-sm" 
+                  : "text-[var(--foreground)]/70 hover:text-[var(--foreground)] hover:bg-[var(--container)]/50"
+              }`}
               disabled={!user}
               style={!user ? { opacity: 0.5, pointerEvents: "none" } : {}}
             >
@@ -497,21 +514,22 @@ export default function Sidebox({
             className={`overflow-y-auto flex-1 ${showFoldersTab ? "" : "hidden"} ${!user ? "hidden" : ""}`}
           >
             {/* Folders Header */}
-            <div className="px-4 py-3 flex justify-between items-center bg-[var(--background-darker)]">
-              <h3 className="text-sm font-medium text-[var(--foreground)]">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center bg-gradient-to-r from-[var(--container)]/20 to-[var(--container)]/10 border-b border-[var(--foreground)]/5">
+              <h3 className="text-xs sm:text-sm font-semibold text-[var(--foreground)] flex items-center">
+                <Folder size={14} className="sm:w-4 sm:h-4 mr-1.5 sm:mr-2 text-blue-500" />
                 {t("sidebar.folders")}
               </h3>
               <button
                 onClick={() => setIsAddingFolder(true)}
-                className="p-1 rounded-full hover:bg-[var(--container)] transition-colors"
+                className="p-1.5 sm:p-2 rounded-md sm:rounded-lg hover:bg-[var(--container)]/50 transition-all duration-200 hover:scale-105"
                 title={t("sidebar.newFolder")}
               >
-                <FolderPlus size={16} className="text-[var(--foreground)]" />
+                <FolderPlus size={14} className="sm:w-4 sm:h-4 text-blue-500" />
               </button>
             </div>
             {isAddingFolder && (
-              <div className="p-2 bg-[var(--container)] bg-opacity-30">
-                <div className="flex">
+              <div className="p-3 sm:p-4 bg-gradient-to-r from-blue-50/50 to-purple-50/50 dark:from-blue-900/20 dark:to-purple-900/20 border-b border-[var(--foreground)]/10">
+                <div className="flex rounded-lg sm:rounded-xl overflow-hidden shadow-sm">
                   <input
                     type="text"
                     defaultValue=""
@@ -524,7 +542,7 @@ export default function Sidebox({
                       }, 0);
                     }}
                     placeholder={t("sidebar.folderName")}
-                    className="flex-1 p-2 text-sm bg-[var(--container)] border border-slate-700 rounded-l-md focus:outline-none"
+                    className="flex-1 p-2.5 sm:p-3 text-xs sm:text-sm bg-white dark:bg-[var(--container)] border-0 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                     autoFocus
                     onKeyDown={(e) => {
                       if (e.key === "Enter") createFolder();
@@ -534,19 +552,19 @@ export default function Sidebox({
                   />
                   <button
                     onClick={createFolder}
-                    className="px-3 bg-blue-500 text-white rounded-r-md hover:bg-blue-600 transition-colors flex items-center justify-center min-w-[48px]"
+                    className="px-3 sm:px-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 transition-all duration-200 flex items-center justify-center min-w-[50px] sm:min-w-[60px] shadow-sm"
                     disabled={isFolderCreating}
                   >
                     {isFolderCreating ? (
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                     ) : (
-                      t("sidebar.add")
+                      <span className="font-medium text-xs sm:text-sm">{t("sidebar.add")}</span>
                     )}
                   </button>
                 </div>
                 <button
                   onClick={() => setIsAddingFolder(false)}
-                  className="w-full mt-1 text-xs text-center py-1 text-[var(--foreground)] hover:underline"
+                  className="w-full mt-2 sm:mt-3 text-xs text-center py-1.5 sm:py-2 text-[var(--foreground)]/70 hover:text-[var(--foreground)] hover:bg-[var(--container)]/30 rounded-md sm:rounded-lg transition-all duration-200"
                   disabled={isFolderCreating}
                 >
                   {t("sidebar.cancel")}
@@ -554,65 +572,66 @@ export default function Sidebox({
               </div>
             )}
             {/* Folders List */}
-            <div className="px-2 py-1 space-y-1">
+            <div className="px-3 sm:px-4 py-1.5 sm:py-2 space-y-1.5 sm:space-y-2">
               {folders.length === 0 ? (
-                <div className="px-4 py-3 text-center text-sm text-[var(--foreground)] opacity-70">
-                  {t("sidebar.noFolders")}
+                <div className="px-3 sm:px-4 py-6 sm:py-8 text-center text-xs sm:text-sm text-[var(--foreground)]/60">
+                  <Folder size={20} className="sm:w-6 sm:h-6 mx-auto mb-1.5 sm:mb-2 text-[var(--foreground)]/40" />
+                  <p>{t("sidebar.noFolders")}</p>
                 </div>
               ) : (
                 folders.map((folder) => (
-                  <div key={folder.id} className="rounded-md overflow-hidden">
+                  <div key={folder.id} className="rounded-lg sm:rounded-xl overflow-hidden bg-[var(--container)]/20 hover:bg-[var(--container)]/40 transition-all duration-200">
                     <div
-                      className={`p-2 hover:bg-[var(--container)] cursor-pointer transition-colors flex items-center justify-between`}
+                      className={`p-2.5 sm:p-3 cursor-pointer transition-all duration-200 flex items-center justify-between`}
                       onClick={() => toggleFolder(folder.id)}
                     >
                       <div className="flex items-center flex-1 min-w-0">
-                        <div className="p-1">
+                        <div className="p-0.5 sm:p-1 mr-1.5 sm:mr-2">
                           {folder.expanded ? (
-                            <FolderOpen size={16} className="text-blue-400" />
+                            <FolderOpen size={16} className="sm:w-[18px] sm:h-[18px] text-blue-500" />
                           ) : (
-                            <Folder size={16} className="text-blue-400" />
+                            <Folder size={16} className="sm:w-[18px] sm:h-[18px] text-blue-500" />
                           )}
                         </div>
                         <ChevronDown
                           size={14}
-                          className={`mx-1 transition-transform ${folder.expanded ? "rotate-0" : "-rotate-90"}`}
+                          className={`sm:w-4 sm:h-4 mr-1.5 sm:mr-2 transition-transform duration-200 text-[var(--foreground)]/60 ${folder.expanded ? "rotate-0" : "-rotate-90"}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             toggleFolder(folder.id);
                           }}
                         />
-                        <span className="text-sm truncate">{folder.name}</span>
+                        <span className="text-xs sm:text-sm font-medium truncate">{folder.name}</span>
                       </div>
-                      <div className="flex items-center space-x-1">
+                      <div className="flex items-center space-x-0.5 sm:space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             router.push(`/editor?folder=${folder.id}`);
                           }}
-                          className="p-1 rounded hover:bg-[var(--container-darker)] transition-colors"
+                          className="p-1.5 sm:p-2 rounded-md sm:rounded-lg hover:bg-[var(--container)]/60 transition-all duration-200 hover:scale-105"
                           title={t("sidebar.addToFolder")}
                         >
                           <Plus
-                            size={14}
-                            className="text-[var(--foreground)]"
+                            size={12}
+                            className="sm:w-[14px] sm:h-[14px] text-green-500"
                           />
                         </button>
                         <button
                           onClick={(e) => deleteFolder(folder.id, e)}
-                          className="p-1 rounded hover:bg-[var(--container-darker)] transition-colors"
+                          className="p-1.5 sm:p-2 rounded-md sm:rounded-lg hover:bg-red-500/20 transition-all duration-200 hover:scale-105"
                           title={t("sidebar.deleteFolder")}
                         >
                           <Trash2
-                            size={14}
-                            className="text-[var(--foreground)]"
+                            size={12}
+                            className="sm:w-[14px] sm:h-[14px] text-red-500"
                           />
                         </button>
                       </div>
                     </div>
 
                     {folder.expanded && (
-                      <div className="ml-7 space-y-0.5 mt-0.5 mb-2 bg-[var(--container)] bg-opacity-20 rounded-md py-1">
+                      <div className="mx-4 mb-3 space-y-1 bg-gradient-to-r from-[var(--container)]/10 to-[var(--container)]/5 rounded-lg p-3 border-l-2 border-blue-500/30">
                         {notes
                           .filter((note) => note.folder_id === folder.id)
                           .map((note) => (
@@ -621,14 +640,22 @@ export default function Sidebox({
                               key={note.id}
                               onClick={() => toggleMobileSidebar()}
                             >
-                              <div className="px-3 py-1.5 hover:bg-[var(--container)] cursor-pointer transition-colors text-sm flex items-center justify-between group rounded-md mx-1">
+                              <div className={`px-3 py-2 hover:bg-[var(--container)]/50 cursor-pointer transition-all duration-200 text-sm flex items-center justify-between group rounded-lg ${
+                                isNoteActive(note.id) 
+                                  ? 'bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-l-2 border-blue-500 shadow-sm' 
+                                  : ''
+                              }`}>
                                 <div className="flex items-center overflow-hidden">
                                   <File
-                                    size={13}
-                                    className="mr-2 flex-shrink-0 text-[var(--foreground)]"
+                                    size={14}
+                                    className={`mr-3 flex-shrink-0 ${
+                                      isNoteActive(note.id) ? 'text-blue-500' : 'text-blue-400'
+                                    }`}
                                   />
-                                  <span className="truncate">
-                                    {note.title || t("sidebar.untitled")}
+                                  <span className={`truncate font-medium ${
+                                    isNoteActive(note.id) ? 'text-blue-600 dark:text-blue-400' : ''
+                                  }`}>
+                                    {getTitleExcerpt(note.title) || t("sidebar.untitled")}
                                   </span>
                                 </div>
                                 <button
@@ -637,12 +664,12 @@ export default function Sidebox({
                                     e.stopPropagation();
                                     moveNoteToFolder(note.id, null);
                                   }}
-                                  className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-[var(--container-darker)] transition-colors"
+                                  className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-red-500/20 transition-all duration-200"
                                   title={t("sidebar.removeFromFolder")}
                                 >
                                   <X
                                     size={12}
-                                    className="text-[var(--foreground)]"
+                                    className="text-red-500"
                                   />
                                 </button>
                               </div>
@@ -650,8 +677,9 @@ export default function Sidebox({
                           ))}
                         {notes.filter((note) => note.folder_id === folder.id)
                           .length === 0 && (
-                          <div className="py-2 text-xs text-center text-[var(--foreground)] opacity-70">
-                            {t("sidebar.emptyFolder")}
+                          <div className="py-4 text-xs text-center text-[var(--foreground)]/50">
+                            <File size={16} className="mx-auto mb-1 opacity-50" />
+                            <p>{t("sidebar.emptyFolder")}</p>
                           </div>
                         )}
                       </div>
@@ -661,46 +689,58 @@ export default function Sidebox({
               )}
             </div>
             {/* Notas sem pasta para arrastar */}
-            <div className="mt-4 px-4 py-3 flex items-center bg-[var(--background-darker)]">
-              <Inbox size={16} className="text-[var(--foreground)] mr-2" />
-              <h3 className="text-sm font-medium text-[var(--foreground)]">
+            <div className="mt-6 px-6 py-4 flex items-center bg-gradient-to-r from-[var(--container)]/20 to-[var(--container)]/10 border-b border-[var(--foreground)]/5">
+              <div className="p-2 bg-gradient-to-br from-gray-400 to-gray-600 rounded-lg mr-3">
+                <Inbox size={16} className="text-white" />
+              </div>
+              <h3 className="text-sm font-semibold text-[var(--foreground)]">
                 {t("sidebar.unfiled")}
               </h3>
             </div>{" "}
-            <div className="px-2 py-2">
+            <div className="px-4 py-2 space-y-1">
               {notes
                 .filter((note) => note.folder_id === null)
                 .map((note) => (
                   <div key={note.id} className="relative group">
-                    <Link
-                      href={`/notes/${note.id}`}
-                      onClick={() => toggleMobileSidebar()}
-                    >
-                      <div className="p-2 rounded-md hover:bg-[var(--container)] cursor-pointer transition-colors mb-1 flex items-start">
+                    <div className={`p-3 rounded-xl hover:bg-[var(--container)]/40 cursor-pointer transition-all duration-200 mb-1 flex items-start border border-transparent hover:border-[var(--foreground)]/10 ${
+                      isNoteActive(note.id) 
+                        ? 'bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-l-2 border-blue-500 shadow-sm !border-blue-500/30' 
+                        : ''
+                    }`}>
+                      <Link
+                        href={`/notes/${note.id}`}
+                        onClick={() => toggleMobileSidebar()}
+                        className="flex-1 min-w-0"
+                      >
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center">
                             <File
-                              size={14}
-                              className="mr-2 text-[var(--foreground)]"
+                              size={16}
+                              className={`mr-3 ${
+                                isNoteActive(note.id) ? 'text-blue-500' : 'text-blue-400'
+                              }`}
                             />
-                            <span className="text-sm truncate">
-                              {note.title || t("sidebar.untitled")}
+                            <span className={`text-sm font-medium truncate ${
+                              isNoteActive(note.id) ? 'text-blue-600 dark:text-blue-400' : ''
+                            }`}>
+                              {getTitleExcerpt(note.title) || t("sidebar.untitled")}
                             </span>
                           </div>
-                          <div className="flex items-center text-xs text-[var(--foreground)] mt-1 ml-6 opacity-70">
+                          <div className="flex items-center text-xs text-[var(--foreground)]/60 mt-2 ml-7">
                             <ClockIcon size={12} className="mr-1" />
                             <span>{formatDate(note.created_at)}</span>
                           </div>
                         </div>
-                        {/* Dropdown menu trigger for moving to folder */}
-                        <div className="ml-2 text-[var(--foreground)] ">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="opacity-60 group-hover:opacity-100"
-                              >
+                      </Link>
+                      {/* Dropdown menu trigger for moving to folder */}
+                      <div className="ml-2 text-[var(--foreground)] opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="hover:bg-[var(--container)]/60 rounded-lg"
+                            >
                                 <svg
                                   width="18"
                                   height="18"
@@ -747,156 +787,181 @@ export default function Sidebox({
                           </DropdownMenu>
                         </div>
                       </div>
-                    </Link>
                   </div>
                 ))}
               {notes.filter((note) => note.folder_id === null).length === 0 && (
-                <div className="py-3 text-sm text-center text-[var(--foreground)] opacity-70">
-                  {t("sidebar.noUncategorizedNotes")}
+                <div className="py-8 text-sm text-center text-[var(--foreground)]/50">
+                  <Inbox size={24} className="mx-auto mb-2 opacity-50" />
+                  <p>{t("sidebar.noUncategorizedNotes")}</p>
                 </div>
               )}
             </div>
           </div>
           {/* Notes list - shown only in "Notes" tab view */}
           <div
-            className={`flex-1 overflow-y-auto px-2 py-2 space-y-1 ${showFoldersTab ? "hidden" : ""}`}
+            className={`flex-1 overflow-y-auto px-3 sm:px-4 py-1.5 sm:py-2 space-y-1.5 sm:space-y-2 ${showFoldersTab ? "hidden" : ""}`}
           >
             {!user ? (
-              <div className="text-center py-8 text-slate-500">
-                <p>{t("sidebar.loginToCreateNotes")}</p>
+              <div className="text-center py-8 sm:py-12 text-[var(--foreground)]/60">
+                <BookOpen size={28} className="sm:w-8 sm:h-8 mx-auto mb-3 sm:mb-4 opacity-50" />
+                <p className="font-medium text-sm sm:text-base">{t("sidebar.loginToCreateNotes")}</p>
               </div>
             ) : loading ? (
-              <div className="flex justify-center py-8">
-                <div className="w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+              <div className="flex flex-col items-center justify-center py-8 sm:py-12">
+                <div className="w-6 h-6 sm:w-8 sm:h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3 sm:mb-4"></div>
+                <p className="text-xs sm:text-sm text-[var(--foreground)]/60">Loading notes...</p>
               </div>
             ) : filteredNotes.length > 0 ? (
-              filteredNotes.map((note) => (
-                <div key={note.id} className="relative group">
-                  <Link
-                    href={`/notes/${note.id}`}
-                    onClick={() => toggleMobileSidebar()}
-                  >
-                    <div className="p-3 rounded-lg hover:bg-[var(--container)] cursor-pointer transition-colors border border-transparent hover:border-slate-700">
-                      <div className="flex items-start space-x-3">
-                        <BookOpenText
-                          size={16}
-                          className="mt-1 text-[var(--foreground)]"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <h2 className="font-medium truncate">
-                            {note.title || t("sidebar.untitled")}
-                          </h2>
-                          {note.content && (
-                            <p className="text-xs text-[var(--foreground)] mt-1 truncate">
-                              {getExcerpt(note.content)}
-                            </p>
-                          )}
-                          <div className="flex items-center text-xs text-[var(--foreground)] mt-2">
-                            <ClockIcon size={12} className="mr-1" />
-                            <span>{formatDate(note.created_at)}</span>
-                            {note.folder_id && (
-                              <div className="ml-2 flex items-center text-xs">
-                                <Folder
-                                  size={12}
-                                  className="mr-1 text-blue-400"
-                                />
-                                <span className="truncate max-w-[80px]">
-                                  {folders.find((f) => f.id === note.folder_id)
-                                    ?.name || ""}
-                                </span>
-                              </div>
+              <>
+                {filteredNotes.map((note) => (
+                  <div key={note.id} className="relative group">
+                    <div className={`p-3 sm:p-4   hover:bg-[var(--container)]/40 cursor-pointer transition-all duration-200 border border-transparent hover:border-[var(--foreground)]/10 hover:shadow-sm ${
+                      isNoteActive(note.id) 
+                        ? 'bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-l-2 border-blue-500 shadow-sm !border-blue-500/30' 
+                        : ''
+                    }`}>
+                      <Link
+                        href={`/notes/${note.id}`}
+                        onClick={() => toggleMobileSidebar()}
+                        className="flex items-start space-x-2.5 sm:space-x-3 flex-1"
+                      >
+                        <div className="flex items-start space-x-2.5 sm:space-x-3 flex-1">
+                          <div className={`p-1.5 sm:p-2 rounded-md sm:rounded-lg ${
+                            isNoteActive(note.id) 
+                              ? 'bg-gradient-to-br from-blue-600 to-purple-700 shadow-md' 
+                              : 'bg-gradient-to-br from-blue-500 to-purple-600'
+                          }`}>
+                            <BookOpenText
+                              size={14}
+                              className="sm:w-4 sm:h-4 text-white"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h2 className={`font-semibold truncate text-xs sm:text-sm ${
+                              isNoteActive(note.id) ? 'text-blue-600 dark:text-blue-400' : ''
+                            }`}>
+                              {getTitleExcerpt(note.title) || t("sidebar.untitled")}
+                            </h2>
+                            {note.content && (
+                              <p className="text-xs text-[var(--foreground)]/60 mt-0.5 sm:mt-1 truncate">
+                                {getExcerpt(note.content)}
+                              </p>
                             )}
-                            {!note.folder_id && (
-                              <div className="ml-2 flex items-center text-xs">
-                                <Inbox size={12} className="mr-1" />
-                                <span>{t("sidebar.unfiled")}</span>
+                            <div className="flex items-center text-xs text-[var(--foreground)]/50 mt-2 sm:mt-3 space-x-2 sm:space-x-3">
+                              <div className="flex items-center">
+                                <ClockIcon size={10} className="sm:w-3 sm:h-3 mr-1" />
+                                <span className="text-xs">{formatDate(note.created_at)}</span>
                               </div>
-                            )}
+                              {note.folder_id && (
+                                <div className="flex items-center">
+                                  <Folder
+                                    size={10}
+                                    className="sm:w-3 sm:h-3 mr-0.5 sm:mr-1 text-blue-400"
+                                  />
+                                  <span className="truncate max-w-[60px] sm:max-w-[80px] text-xs">
+                                    {folders.find((f) => f.id === note.folder_id)
+                                      ?.name || ""}
+                                  </span>
+                                </div>
+                              )}
+                              {!note.folder_id && (
+                                <div className="flex items-center">
+                                  <Inbox size={10} className="sm:w-3 sm:h-3 mr-0.5 sm:mr-1 text-gray-400" />
+                                  <span className="text-xs">{t("sidebar.unfiled")}</span>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
-                        {/* Dropdown menu trigger */}
-                        <div className="ml-2 text-[var(--foreground)]">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="opacity-60 group-hover:opacity-100"
+                      </Link>
+                      {/* Dropdown menu trigger */}
+                      <div className="absolute top-3 sm:top-4 right-3 sm:right-4 text-[var(--foreground)] opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="hover:bg-[var(--container)]/60 rounded-md sm:rounded-lg w-6 h-6 sm:w-8 sm:h-8"
+                            >
+                              <svg
+                                width="14"
+                                height="14"
+                                className="sm:w-[18px] sm:h-[18px]"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                viewBox="0 0 24 24"
                               >
-                                <svg
-                                  width="18"
-                                  height="18"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  viewBox="0 0 24 24"
+                                <circle cx="12" cy="12" r="1" />
+                                <circle cx="19" cy="12" r="1" />
+                                <circle cx="5" cy="12" r="1" />
+                              </svg>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent className="w-56 ">
+                            <DropdownMenuLabel>
+                              {t("sidebar.moveToFolder")}
+                            </DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuRadioGroup
+                              value={note.folder_id || "none"}
+                              onValueChange={(folderId) =>
+                                moveNoteToFolder(
+                                  note.id,
+                                  folderId === "none" ? null : folderId,
+                                )
+                              }
+                            >
+                              <DropdownMenuRadioItem value="none">
+                                {t("sidebar.unfiled")}
+                              </DropdownMenuRadioItem>
+                              {folders.map((folder) => (
+                                <DropdownMenuRadioItem
+                                  key={folder.id}
+                                  value={folder.id}
                                 >
-                                  <circle cx="12" cy="12" r="1" />
-                                  <circle cx="19" cy="12" r="1" />
-                                  <circle cx="5" cy="12" r="1" />
-                                </svg>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent className="w-56 ">
-                              <DropdownMenuLabel>
-                                {t("sidebar.moveToFolder")}
-                              </DropdownMenuLabel>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuRadioGroup
-                                value={note.folder_id || "none"}
-                                onValueChange={(folderId) =>
-                                  moveNoteToFolder(
-                                    note.id,
-                                    folderId === "none" ? null : folderId,
-                                  )
-                                }
-                              >
-                                <DropdownMenuRadioItem value="none">
-                                  {t("sidebar.unfiled")}
+                                  {folder.name}
                                 </DropdownMenuRadioItem>
-                                {folders.map((folder) => (
-                                  <DropdownMenuRadioItem
-                                    key={folder.id}
-                                    value={folder.id}
-                                  >
-                                    {folder.name}
-                                  </DropdownMenuRadioItem>
-                                ))}
-                              </DropdownMenuRadioGroup>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
+                              ))}
+                            </DropdownMenuRadioGroup>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
-                  </Link>
-                </div>
-              ))
+                  </div>
+                ))}
+              </>
             ) : (
-              <div className="text-center py-8 text-slate-500">
+              <div className="text-center py-12 text-[var(--foreground)]/60">
                 {searchTerm ? (
                   <div>
-                    <p>{t("sidebar.noNotesFound")}</p>
-                    <p className="text-xs mt-1">{t("sidebar.tryOtherTerms")}</p>
+                    <Search size={32} className="mx-auto mb-4 opacity-50" />
+                    <p className="font-medium">{t("sidebar.noNotesFound")}</p>
+                    <p className="text-xs mt-2 opacity-75">{t("sidebar.tryOtherTerms")}</p>
                   </div>
                 ) : (
                   <div>
                     {user ? (
                       <>
-                        <p>{t("sidebar.noNotesYet")}</p>
-                        <p className="text-xs mt-1">
+                        <BookOpen size={28} className="sm:w-8 sm:h-8 mx-auto mb-3 sm:mb-4 opacity-50" />
+                        <p className="font-medium text-sm sm:text-base">{t("sidebar.noNotesYet")}</p>
+                        <p className="text-xs mt-1.5 sm:mt-2 mb-3 sm:mb-4 opacity-75">
                           {t("sidebar.createYourFirst")}
                         </p>
                         <button
                           onClick={() => router.push("/editor")}
-                          className="text-blue-400 text-sm mt-2 hover:underline"
+                          className="bg-gradient-to-r from-blue-500 to-blue-600 text-white text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-sm"
                         >
                           {t("sidebar.createFirstNote")}
                         </button>
                       </>
                     ) : (
-                      <p>{t("sidebar.loginToCreateNotes")}</p>
+                      <>
+                        <BookOpen size={28} className="sm:w-8 sm:h-8 mx-auto mb-3 sm:mb-4 opacity-50" />
+                        <p className="font-medium text-sm sm:text-base">{t("sidebar.loginToCreateNotes")}</p>
+                      </>
                     )}
                   </div>
                 )}
@@ -904,9 +969,9 @@ export default function Sidebox({
             )}
           </div>
           {/* Footer */}
-          <div className="p-4 text-xs text-[var(--foreground)]">
+          <div className="p-4 sm:p-6 text-xs text-[var(--foreground)]/70 bg-gradient-to-r from-[var(--container)]/10 to-[var(--container)]/5 border-t border-[var(--foreground)]/10">
             <div className="flex justify-between items-center">
-              <div>
+              <div className="font-medium text-xs">
                 {t("sidebar.total")}: {notes.length}{" "}
                 {notes.length === 1
                   ? t("sidebar.noteCountSingular")
@@ -934,27 +999,31 @@ export default function Sidebox({
                       setIsLoggingOut(false);
                     }
                   }}
-                  className="bg-blue-500 text-white hover:bg-blue-400 px-4 py-2 rounded disabled:opacity-60"
+                  className="bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 px-3 sm:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg disabled:opacity-60 transition-all duration-200 shadow-sm font-medium text-xs sm:text-sm"
                   disabled={isLoggingOut}
                 >
                   {isLoggingOut ? "Logging out..." : t("sidebar.logout")}
                 </button>
               )}
               <button
-                onClick={fetchNotes}
-                className="p-1 hover:text-slate-300 transition-colors"
+                onClick={() => {
+                  notesLoadedRef.current = false; // Reset para forçar reload
+                  fetchNotes();
+                }}
+                className="p-1.5 sm:p-2 hover:bg-[var(--container)]/50 rounded-md sm:rounded-lg transition-all duration-200 hover:scale-105"
                 title={t("sidebar.refresh")}
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
+                  width="14"
+                  height="14"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  className="sm:w-4 sm:h-4 text-blue-500"
                 >
                   <path d="M21 2v6h-6"></path>
                   <path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
@@ -964,34 +1033,34 @@ export default function Sidebox({
               </button>
             </div>
           </div>{" "}
-          <div className="p-2 ">
-            <div className="flex justify-end items-center gap-2 ">
+          <div className="p-3 sm:p-4 border-t border-[var(--foreground)]/10">
+            <div className="flex justify-end items-center ">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label="Controls">
-                    <Settings className="h-5 w-5" />
+                  <Button variant="ghost" size="icon" aria-label="Controls" className="hover:bg-[var(--container)]/50 rounded-md sm:rounded-lg w-7 h-7 sm:w-8 sm:h-8">
+                    <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>{t("sidebar.controls")}</DropdownMenuLabel>
+                <DropdownMenuContent align="end" className="w-48 sm:w-56">
+                  <DropdownMenuLabel className="font-semibold text-xs sm:text-sm">{t("sidebar.controls")}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={toggleFullscreen}>
-                    <Fullscreen className="mr-2 h-4 w-4" />
+                  <DropdownMenuItem onClick={toggleFullscreen} className="hover:bg-[var(--container)]/50 text-xs sm:text-sm">
+                    <Fullscreen className="mr-1.5 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                     {t("sidebar.fullscreen")}
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link href="/settings" className="flex items-center">
-                      <Settings className="mr-2 h-4 w-4" />
+                    <Link href="/settings" className="flex items-center hover:bg-[var(--container)]/50 text-xs sm:text-sm">
+                      <Settings className="mr-1.5 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                       {t("sidebar.settings")}
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel>{t("sidebar.language")}</DropdownMenuLabel>
+                  <DropdownMenuLabel className="font-semibold text-xs sm:text-sm">{t("sidebar.language")}</DropdownMenuLabel>
                   {languages.map((lang) => (
                     <DropdownMenuItem
                       key={lang.code}
                       onClick={() => i18n.changeLanguage(lang.code)}
-                      className={i18n.language === lang.code ? "font-bold" : ""}
+                      className={`hover:bg-[var(--container)]/50 text-xs sm:text-sm ${i18n.language === lang.code ? "font-bold bg-blue-500/20" : ""}`}
                     >
                       {lang.name}
                     </DropdownMenuItem>
@@ -1003,8 +1072,11 @@ export default function Sidebox({
             <ThemeToggle />
           </div>
           {user && (
-            <div className="px-4 py-4 bg-[var(--container)] text-[var(--foreground)] flex justify-center items-center text-sm">
-              <p>{user.email}</p>
+            <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-[var(--container)]/30 to-[var(--container)]/20 text-[var(--foreground)] flex justify-center items-center text-xs sm:text-sm border-t border-[var(--foreground)]/10">
+              <div className="flex items-center space-x-1.5 sm:space-x-2">
+                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <p className="font-medium truncate">{user.email}</p>
+              </div>
             </div>
           )}
         </div>

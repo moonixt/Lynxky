@@ -7,11 +7,45 @@ import { ProtectedRoute } from "../components/ProtectedRoute";
 import { ArrowLeft, Lock, Users } from "lucide-react";
 import Link from "next/link";
 import { useTranslation } from "next-i18next";
+import { useEffect } from "react";
 
 function EditorContent() {
   const { t } = useTranslation();
   const searchParams = useSearchParams();
   const noteType = searchParams?.get('type') === 'public' ? 'public' : 'private';
+
+ // Auto-scroll to middle of page on load
+  useEffect(() => {
+    const scrollToMiddle = () => {
+      const viewportHeight = window.innerHeight;
+      const scrollTarget = viewportHeight * 0.45; // Scroll to 45% of viewport height
+      
+      // Try multiple times to ensure it works
+      setTimeout(() => {
+        window.scrollTo({
+          top: scrollTarget,
+          behavior: 'smooth'
+        });
+      }, 100);
+      
+      setTimeout(() => {
+        window.scrollTo({
+          top: scrollTarget,
+          behavior: 'smooth'
+        });
+      }, 500);
+      
+      setTimeout(() => {
+        window.scrollTo({
+          top: scrollTarget,
+          behavior: 'smooth'
+        });
+      }, 1000);
+    };
+
+    // Execute scroll on component mount
+    scrollToMiddle();
+  }, []); // Empty dependency array - only run once on mount
 
   return (
     <>

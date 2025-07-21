@@ -222,6 +222,9 @@
       "untitled": "Untitled",
       "noContent": "No content"
     },
+    "confirmDelete": "Are you sure you want to delete this note? This action cannot be undone.",
+    "deleteError": "Failed to delete note. Please try again.",
+    "collaborativeDeleteInfo": "Only the host (creator) of this collaborative note can delete it. Please contact the note owner to remove it.",
     "collaborative": "Collaborative",
     "private": "Private",
     "publicNotesEmptyDescription": "Create your first collaborative note to start sharing and collaborating with others!",
@@ -365,7 +368,7 @@
   },
   "editor": {
     "titlePlaceholder": "Workspace name",
-    "contentPlaceholder": "Write your note here...",
+    "contentPlaceholder": "Press '/' to add an element",
     "noteTitle": "Note title",
     "noteContent": "Write your note here...",
     "addEmoji": "Add emoji",
@@ -415,6 +418,59 @@
     "privateNote": "Private Note",
     "publicNote": "Collaborative Note",
     "onlyYouCanSee": "Only you can see",
+    "slashMenu": {
+      "quickCommands": "ASSISTANT",
+      "searching": "Searching for",
+      "noResults": "NO RESULTS",
+      "noCommandsFound": "No command found for",
+      "navigate": "navigate",
+      "select": "select",
+      "cancel": "cancel",
+      "assistant": "Assistant",
+      "commands": {
+        "bold": {
+          "description": "Bold text"
+        },
+        "italic": {
+          "description": "Italic text"
+        },
+        "heading1": {
+          "description": "Large heading"
+        },
+        "heading2": {
+          "description": "Subtitle"
+        },
+        "code": {
+          "description": "Code block"
+        },
+        "orderedList": {
+          "description": "Numbered list"
+        },
+        "unorderedList": {
+          "description": "Bullet list"
+        },
+        "link": {
+          "description": "Insert link"
+        },
+        "image": {
+          "description": "Insert image"
+        }
+      },
+      "placeholders": {
+        "bold": "bold text",
+        "italic": "italic text",
+        "heading1": "Heading",
+        "heading2": "Subheading",
+        "code": "code",
+        "codeBlock": "code here",
+        "orderedList": "1. First item\n2. Second item\n3. Third item",
+        "unorderedList": "- First item\n- Second item\n- Third item",
+        "linkText": "link text",
+        "linkUrl": "url",
+        "imageDescription": "image description",
+        "imageUrl": "image_url"
+      }
+    },
     "realtimeCollaboration": "Real-time collaboration",
     "connected": "Connected",
     "disconnected": "Disconnected",
