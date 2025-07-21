@@ -279,19 +279,45 @@ export default function NotePage() {
     fetchNote();
   }, [fetchNote]);
 
-  const handleSave = async (isAutoSave = false) => {
-    if (!user || !noteId) return;
+  const handleSave = useCallback(async (isAutoSave = false) => {
+    console.log('[DEBUG] handleSave called - noteType:', noteType, 'isAutoSave:', isAutoSave, 'user:', !!user, 'noteId:', noteId);
+    
+    if (!user || !noteId) {
+      console.log('[DEBUG] handleSave early return - missing user or noteId');
+      return;
+    }
 
     // Check if user can save before proceeding
     if (!canSave) {
+      console.log('[DEBUG] handleSave blocked - canSave is false, noteType:', noteType, 'userPermission:', userPermission, 'isOwner:', userPermission === 'owner');
       if (!isAutoSave) {
         showToast("You can only read this note. Upgrade to edit.", "error");
       }
       return;
     }
 
+    console.log('[DEBUG] handleSave proceeding - noteType:', noteType, 'editTitle:', editTitle, 'editContent length:', editContent.length, 'userPermission:', userPermission);
+
     try {
+      // Update local state immediately for better responsiveness
+      const updatedNote = {
+        title: editTitle || "Untitled",
+        content: editContent,
+      };
+      
+      // Update UI state immediately 
+      setNote((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          ...updatedNote,
+        };
+      });
+
       if (noteType === 'public') {
+        console.log('[DEBUG] Saving public note with realtimeManager - userPermission:', userPermission);
+        const startTime = Date.now();
+        
         // Update public note with encryption
         const encryptedTitle = encrypt(editTitle || "Untitled");
         const encryptedContent = encrypt(editContent);
@@ -301,20 +327,18 @@ export default function NotePage() {
           content: encryptedContent
         });
 
+        const endTime = Date.now();
+        console.log('[DEBUG] Public note save completed in', endTime - startTime, 'ms - result:', result);
+
         if (!result.success) {
+          console.error('[DEBUG] Public note save failed:', result.error);
           throw new Error(result.error || 'Failed to update public note');
         }
-
-        // Update local state with decrypted values
-        setNote((prev) => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            title: editTitle || "Untitled",
-            content: editContent,
-          };
-        });
+        console.log('[DEBUG] Public note saved successfully in', endTime - startTime, 'ms');
       } else {
+        console.log('[DEBUG] Saving private note with supabase');
+        const startTime = Date.now();
+        
         // Update private note (existing logic)
         const encryptedTitle = encrypt(editTitle || "Untitled");
         const encryptedContent = encrypt(editContent);
@@ -328,26 +352,17 @@ export default function NotePage() {
           .eq("id", noteId)
           .eq("user_id", user.id);
 
+        const endTime = Date.now();
+        console.log('[DEBUG] Private note save completed in', endTime - startTime, 'ms');
+
         if (error) {
+          console.error('[DEBUG] Private note save failed:', error);
           throw error;
         }
-
-        // Update note state with the edited values
-        setNote((prev) => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            title: editTitle,
-            content: editContent,
-          };
-        });
+        console.log('[DEBUG] Private note saved successfully in', endTime - startTime, 'ms');
       }
 
-      // Emit event to update sidebar via Realtime
-      // The Realtime system will automatically notify all subscribed components
-      // No manual event emission needed!
-
-      // Limpar localStorage após salvar com sucesso
+      // Clear localStorage after successful save
       localStorage.removeItem(`fair-note-edit-title-${noteId}`);
       localStorage.removeItem(`fair-note-edit-content-${noteId}`);
 
@@ -357,13 +372,25 @@ export default function NotePage() {
         showToast(t("editor.noteSaved"), "success");
       }
     } catch (error) {
-      console.error("Error saving note:", error);
+      // Revert local state if save failed
+      if (note) {
+        setNote((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            title: note.title,
+            content: note.content,
+          };
+        });
+      }
+      
+      console.error("[DEBUG] Error saving note:", error);
       if (!isAutoSave) {
         showToast(t("editor.saveError"), "error");
       }
       throw error; // Re-throw for autosave error handling
     }
-  };
+  }, [user, noteId, canSave, editTitle, editContent, noteType, t, note, userPermission]);
 
   const handleDelete = async () => {
     if (!user || !noteId) return;
@@ -907,7 +934,7 @@ export default function NotePage() {
 
             if (publicNoteData?.owner_id === user.id) {
               // User is the owner, grant permissions based on subscription
-              console.log('[DEBUG] User is note owner');
+              console.log('[DEBUG] User is note owner - setting owner permissions');
               setUserPermission('owner');
               setCanEdit(status.canEdit);
               setCanSave(status.canSave);
@@ -925,25 +952,25 @@ export default function NotePage() {
                     
                     if (collaboratorPermission) {
                       // User has collaboration permission, set based on their role
-                      console.log('[DEBUG] Collaboration permission found:', collaboratorPermission);
+                      console.log('[DEBUG] Collaboration permission found:', collaboratorPermission, '- Setting full permissions for collaborator');
                       setUserPermission(collaboratorPermission);
                       
                       if (collaboratorPermission === 'admin' || collaboratorPermission === 'write') {
-                        console.log('[DEBUG] Setting edit permissions for admin/write user');
+                        console.log('[DEBUG] Setting FULL edit permissions for admin/write collaborator');
                         setCanEdit(true);
                         setCanSave(true);
                         setHasReadOnlyAccess(false);
                         setIsCollaboratorWithoutEditRights(false);
                       } else if (collaboratorPermission === 'read') {
-                        console.log('[DEBUG] Setting read-only permissions for read user');
+                        console.log('[DEBUG] Setting read-only permissions for read-only collaborator');
                         setCanEdit(false);
                         setCanSave(false);
                         setHasReadOnlyAccess(false);
                         setIsCollaboratorWithoutEditRights(true);
                       }
                     } else {
-                      // No collaboration permission found
-                      console.log('[DEBUG] No collaboration permission found');
+                      // No collaboration permission found - for public notes, still allow read access
+                      console.log('[DEBUG] No collaboration permission found for public note - setting read-only');
                       setCanEdit(false);
                       setCanSave(false);
                       setHasReadOnlyAccess(false);
@@ -967,7 +994,7 @@ export default function NotePage() {
                 }
               } else {
                 // User doesn't have valid subscription
-                console.log('[DEBUG] User does not have valid subscription');
+                console.log('[DEBUG] User does not have valid subscription - applying subscription limits');
                 setCanEdit(status.canEdit);
                 setCanSave(status.canSave);
                 setHasReadOnlyAccess(status.hasReadOnlyAccess);
@@ -1035,8 +1062,6 @@ export default function NotePage() {
   // Auto-save effect
   useEffect(() => {
     if (!editMode) return; // Only autosave when in edit mode
-    // Permitir salvar notas vazias (removido a validação que impedia isso)
-    // if (!editTitle.trim() && !editContent.trim()) return;
     if (!note) return; // Aguardar a nota carregar
     
     // Verificar se houve mudanças reais comparando com os valores originais da nota
@@ -1049,24 +1074,52 @@ export default function NotePage() {
     
     if (autoSaveTimeout.current) clearTimeout(autoSaveTimeout.current);
     
+    // Para mudanças pequenas (menos de 50 caracteres de diferença), usar debounce menor
+    const contentDiff = Math.abs(editContent.length - note.content.length);
+    const titleDiff = Math.abs(editTitle.length - note.title.length);
+    const isSmallChange = contentDiff < 50 && titleDiff < 20;
+    
+    // Para notas colaborativas, usar debounce mais agressivo para melhor responsividade
+    const isCollaborativeNote = noteType === 'public';
+    let debounceTime;
+    
+    if (isCollaborativeNote) {
+      // Para notas colaborativas: 300ms para mudanças pequenas, 600ms para grandes
+      debounceTime = isSmallChange ? 300 : 600;
+    } else {
+      // Para notas privadas: 500ms para mudanças pequenas, 800ms para grandes
+      debounceTime = isSmallChange ? 500 : 800;
+    }
+    
+    console.log('[DEBUG] Auto-save scheduled in', debounceTime, 'ms for', noteType, 'note, small change:', isSmallChange);
+    
     // Resetar o status para idle primeiro
     setAutoSaveStatus('idle');
     
     autoSaveTimeout.current = setTimeout(async () => {
+      // Check if user can save before proceeding
+      if (!canSave) {
+        console.log('[DEBUG] Auto-save skipped - canSave is false');
+        return;
+      }
+      
+      console.log('[DEBUG] Auto-save executing for', noteType, 'note');
       setAutoSaveStatus('saving');
       try {
         await handleSave(true); // Pass true to indicate this is an autosave
         setAutoSaveStatus('saved');
-        setTimeout(() => setAutoSaveStatus('idle'), 1500);
+        setTimeout(() => setAutoSaveStatus('idle'), 1000);
+        console.log('[DEBUG] Auto-save completed successfully for', noteType, 'note');
       } catch (error) {
+        console.error('[DEBUG] Auto-save failed for', noteType, 'note:', error);
         setAutoSaveStatus('idle');
       }
-    }, 1500); // 1.5s debounce
+    }, debounceTime);
     
     return () => {
       if (autoSaveTimeout.current) clearTimeout(autoSaveTimeout.current);
     };
-  }, [editTitle, editContent, editMode, note]);
+  }, [editTitle, editContent, editMode, note, canSave, handleSave, noteType]);
 
   // Keyboard shortcut for save (Ctrl+S / Cmd+S)
   useEffect(() => {
@@ -1088,15 +1141,16 @@ export default function NotePage() {
         try {
           await handleSave(false); // Manual save
           setAutoSaveStatus('saved');
-          setTimeout(() => setAutoSaveStatus('idle'), 1500);
+          setTimeout(() => setAutoSaveStatus('idle'), 1000);
         } catch (error) {
+          console.error('Manual save failed:', error);
           setAutoSaveStatus('idle');
         }
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [editTitle, editContent, editMode, note]);
+  }, [editTitle, editContent, editMode, note, handleSave]);
 
   // Auto-scroll to middle of page on load
   useEffect(() => {
@@ -1321,12 +1375,16 @@ export default function NotePage() {
                           hasReadOnlyAccess,
                           isCollaboratorWithoutEditRights,
                           userPermission,
-                          noteType
+                          noteType,
+                          isOwner: userPermission === 'owner',
+                          isCollaboratorWithWriteAccess: userPermission === 'admin' || userPermission === 'write'
                         });
                         
                         if (canEdit) {
                           setEditMode(true);
+                          console.log('[DEBUG] Edit mode activated for', noteType, 'note with permission:', userPermission);
                         } else {
+                          console.log('[DEBUG] Edit mode blocked - insufficient permissions');
                           showToast(
                             "You can only read this note. Upgrade to edit.",
                             "error",
@@ -1461,6 +1519,24 @@ export default function NotePage() {
                 </div>
 
                 <div className="ml-auto flex items-center gap-2">
+                  {/* Auto-save status indicator */}
+                  <div className="flex items-center gap-2 text-xs">
+                    {autoSaveStatus === 'saving' && (
+                      <div className="flex items-center gap-1 text-blue-500">
+                        <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                        <span>{noteType === 'public' ? 'Salvando colaboração...' : 'Salvando...'}</span>
+                      </div>
+                    )}
+                    {autoSaveStatus === 'saved' && (
+                      <div className="flex items-center gap-1 text-green-500">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+                        </svg>
+                        <span>{noteType === 'public' ? 'Colaboração salva' : 'Salvo'}</span>
+                      </div>
+                    )}
+                  </div>
+                  
                   <button
                     className={`rounded-md px-3 py-1.5 transition-all duration-200 flex items-center gap-1.5 ${
                       isPreviewMode
