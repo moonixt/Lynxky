@@ -444,7 +444,7 @@ export default function Sidebox({
           <div className="p-4 sm:p-6 border-b border-[var(--foreground)]/10">
             <div className="flex items-center justify-center mb-3 sm:mb-4">
               <h1 className="text-xl sm:text-2xl font-bold flex items-center">
-                <div className="p-1.5 sm:p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg sm:rounded-xl mr-2 sm:mr-3 shadow-lg">
+                <div className="p-1.5 sm:p-2 bg-black rounded-lg sm:rounded-xl mr-2 sm:mr-3 shadow-lg">
                   <Image
                     src="/icon-512x512.png"
                     alt="Lynxky"
@@ -490,7 +490,7 @@ export default function Sidebox({
               onClick={() => setShowFoldersTab(false)}
               className={`flex-1 py-2 sm:py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-semibold rounded-md sm:rounded-lg transition-all duration-200 ${
                 !showFoldersTab 
-                  ? " bg-gradient-to-br from-blue-500 to-purple-600  text-white shadow-sm" 
+                  ? " bg-black text-white shadow-sm" 
                   : "text-[var(--foreground)]/70 hover:text-[var(--foreground)] hover:bg-[var(--container)]/50"
               }`}
             >
@@ -500,7 +500,7 @@ export default function Sidebox({
               onClick={() => setShowFoldersTab(true)}
               className={`flex-1 py-2 sm:py-3 px-3 sm:px-4 text-center text-xs sm:text-sm font-semibold rounded-md sm:rounded-lg transition-all duration-200 ${
                 showFoldersTab 
-                  ? " bg-gradient-to-br from-blue-500 to-purple-600  text-white shadow-sm" 
+                  ? " bg-black  text-white shadow-sm" 
                   : "text-[var(--foreground)]/70 hover:text-[var(--foreground)] hover:bg-[var(--container)]/50"
               }`}
               disabled={!user}
@@ -516,7 +516,7 @@ export default function Sidebox({
             {/* Folders Header */}
             <div className="px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center bg-gradient-to-r from-[var(--container)]/20 to-[var(--container)]/10 border-b border-[var(--foreground)]/5">
               <h3 className="text-xs sm:text-sm font-semibold text-[var(--foreground)] flex items-center">
-                <Folder size={14} className="sm:w-4 sm:h-4 mr-1.5 sm:mr-2 text-blue-500" />
+                <Folder size={14} className="sm:w-4 sm:h-4 mr-1.5 sm:mr-2 text-[var(--foreground)]" />
                 {t("sidebar.folders")}
               </h3>
               <button
@@ -524,7 +524,7 @@ export default function Sidebox({
                 className="p-1.5 sm:p-2 rounded-md sm:rounded-lg hover:bg-[var(--container)]/50 transition-all duration-200 hover:scale-105"
                 title={t("sidebar.newFolder")}
               >
-                <FolderPlus size={14} className="sm:w-4 sm:h-4 text-blue-500" />
+                <FolderPlus size={14} className="sm:w-4 sm:h-4 text-[var(--foreground)]" />
               </button>
             </div>
             {isAddingFolder && (
@@ -588,9 +588,9 @@ export default function Sidebox({
                       <div className="flex items-center flex-1 min-w-0">
                         <div className="p-0.5 sm:p-1 mr-1.5 sm:mr-2">
                           {folder.expanded ? (
-                            <FolderOpen size={16} className="sm:w-[18px] sm:h-[18px] text-blue-500" />
+                            <FolderOpen size={16} className="sm:w-[18px] sm:h-[18px] text-[var(--foreground)]" />
                           ) : (
-                            <Folder size={16} className="sm:w-[18px] sm:h-[18px] text-blue-500" />
+                            <Folder size={16} className="sm:w-[18px] sm:h-[18px] text-[var(--foreground)]" />
                           )}
                         </div>
                         <ChevronDown
@@ -649,11 +649,11 @@ export default function Sidebox({
                                   <File
                                     size={14}
                                     className={`mr-3 flex-shrink-0 ${
-                                      isNoteActive(note.id) ? 'text-blue-500' : 'text-blue-400'
+                                      isNoteActive(note.id) ? 'text-[var(--foreground)]' : 'text-[var(--foreground)]'
                                     }`}
                                   />
                                   <span className={`truncate font-medium ${
-                                    isNoteActive(note.id) ? 'text-blue-600 dark:text-blue-400' : ''
+                                    isNoteActive(note.id) ? 'text-[var(--foreground)]' : ''
                                   }`}>
                                     {getTitleExcerpt(note.title) || t("sidebar.untitled")}
                                   </span>
@@ -828,8 +828,8 @@ export default function Sidebox({
                         <div className="flex items-start space-x-2.5 sm:space-x-3 flex-1">
                           <div className={`p-1.5 sm:p-2 rounded-md sm:rounded-lg ${
                             isNoteActive(note.id) 
-                              ? 'bg-gradient-to-br from-blue-600 to-purple-700 shadow-md' 
-                              : 'bg-gradient-to-br from-blue-500 to-purple-600'
+                              ? 'bg-black' 
+                              : 'bg-black'
                           }`}>
                             <BookOpenText
                               size={14}
@@ -838,7 +838,7 @@ export default function Sidebox({
                           </div>
                           <div className="flex-1 min-w-0">
                             <h2 className={`font-semibold truncate text-xs sm:text-sm ${
-                              isNoteActive(note.id) ? 'text-blue-600 dark:text-blue-400' : ''
+                              isNoteActive(note.id) ? 'text-black-600 dark:text-white' : ''
                             }`}>
                               {getTitleExcerpt(note.title) || t("sidebar.untitled")}
                             </h2>
@@ -856,7 +856,7 @@ export default function Sidebox({
                                 <div className="flex items-center">
                                   <Folder
                                     size={10}
-                                    className="sm:w-3 sm:h-3 mr-0.5 sm:mr-1 text-blue-400"
+                                    className="sm:w-3 sm:h-3 mr-0.5 sm:mr-1 text-black dark:text-white"
                                   />
                                   <span className="truncate max-w-[60px] sm:max-w-[80px] text-xs">
                                     {folders.find((f) => f.id === note.folder_id)
@@ -999,7 +999,7 @@ export default function Sidebox({
                       setIsLoggingOut(false);
                     }
                   }}
-                  className="bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 px-3 sm:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg disabled:opacity-60 transition-all duration-200 shadow-sm font-medium text-xs sm:text-sm"
+                  className="bg-[var(--foreground)] text-[var(--background)]  px-3 sm:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg disabled:opacity-60 transition-all duration-200 shadow-sm font-medium text-xs sm:text-sm"
                   disabled={isLoggingOut}
                 >
                   {isLoggingOut ? "Logging out..." : t("sidebar.logout")}
@@ -1023,7 +1023,7 @@ export default function Sidebox({
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="sm:w-4 sm:h-4 text-blue-500"
+                  className="sm:w-4 sm:h-4 text-[var(--foreground)]"
                 >
                   <path d="M21 2v6h-6"></path>
                   <path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
