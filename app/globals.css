@@ -301,7 +301,7 @@ html {
 
 /* Global styles */
 body {
-  font-family: geist;
+  font-family: monospace;
   line-height: 1.9;
   font-size: 16px;
   text-rendering: optimizeLegibility;

@@ -46,7 +46,7 @@ function createWindow() {
   win.loadURL(startUrl).catch((err) => {
     // Fallback para desenvolvimento se falhar
     if (!isDev) {
-      win.loadURL("http://localhost:3000").catch(() => {
+      win.loadURL("http://lynxky.com").catch(() => {
         win.loadURL(
           "data:text/html,<h2>Failed to load app. Please check your internet connection.</h2><pre>" +
             err +
